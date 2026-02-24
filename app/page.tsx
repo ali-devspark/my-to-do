@@ -35,6 +35,8 @@ import {
   Plus,
   X,
   GripHorizontal,
+  Share2,
+  Download,
 } from "lucide-react";
 
 const ACCENT_COLORS = [
@@ -309,6 +311,9 @@ function CategoryCard({
   const [newTask, setNewTask] = useState("");
   const [title, setTitle] = useState(category.name);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [isCopied, setIsCopied] = useState(false);
 
   // Sync title when category name changes from external source (e.g. Firestore)
   if (title !== category.name && !isEditingTitle) {
@@ -398,21 +403,116 @@ function CategoryCard({
     }
   }, [title, category.name, category.id]);
 
+  const handleShare = () => {
+    const activeText = activeTasks.map(t => t.title).join("\n");
+    const completedText = completedTasks.map(t => t.title).join("\n");
+    const fullText = `${title}\n${activeText}${activeText && completedText ? "\n" : ""}${completedText}`;
+
+    navigator.clipboard.writeText(fullText).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    });
+  };
+
+  const handleImport = async () => {
+    if (!importText.trim()) return;
+
+    const lines = importText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    if (lines.length === 0) return;
+
+    // Check if the first line is the category name. If so, skip it.
+    // We'll skip it if it matches the current title or if it's likely a header (no dash/bullets)
+    let startIndex = 0;
+    if (lines[0] === title || (lines.length > 1 && !lines[0].startsWith("-") && !lines[0].startsWith("*"))) {
+      // If it matches exactly or looks like a title, we might skip it, 
+      // but let's be conservative: if it matches the current title, skip.
+      if (lines[0] === title) startIndex = 1;
+      // Or if the user just pasted a list where the first line isn't a task...
+      // Actually, let's just ask the user if they want to include the first line? 
+      // No, let's just import all non-empty lines but maybe skip if it matches title exactly.
+    }
+
+    const tasksToImport = lines.slice(startIndex);
+
+    try {
+      for (const taskTitle of tasksToImport) {
+        // Clean up prefixes like "- " or "* " or "1. "
+        const cleanTitle = taskTitle.replace(/^[-*•\s\d.]+\s/, "");
+        if (cleanTitle) {
+          await taskService.addTask(userId, cleanTitle, category.id!, tasks.length + tasksToImport.indexOf(taskTitle));
+        }
+      }
+      setImportText("");
+      setShowImport(false);
+    } catch (err) {
+      console.error("Failed to import tasks:", err);
+    }
+  };
+
   return (
     <section className={`bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-xl flex flex-col h-fit ${isDeleting ? accent.border : ""}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6 group/title">
-        <div className="flex items-center gap-2 flex-1">
-          {/* Drag handle for category */}
-          <div
-            {...dragHandleProps}
-            className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-white p-1 transition-colors"
+      {/* Top Action Bar */}
+      <div className="flex items-center justify-between gap-2 mb-6 bg-white/5 p-2 rounded-2xl border border-white/5 overflow-hidden">
+        <div className="flex gap-1 flex-1">
+          <button
+            onClick={handleShare}
+            className={`flex items-center justify-center gap-2 flex-1 py-2 px-3 rounded-xl transition-all ${isCopied ? 'text-emerald-400 bg-emerald-400/20' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
+            title="نسخ المهام"
           >
-            <GripHorizontal size={20} />
+            {isCopied ? <Check size={18} /> : <Share2 size={18} />}
+            <span className="text-xs font-medium">مشاركة</span>
+          </button>
+          <button
+            onClick={() => setShowImport(!showImport)}
+            className={`flex items-center justify-center gap-2 flex-1 py-2 px-3 rounded-xl transition-all ${showImport ? 'text-blue-400 bg-blue-400/20' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
+            title="استيراد مهام"
+          >
+            <Download size={18} className="rotate-180" />
+            <span className="text-xs font-medium">استيراد</span>
+          </button>
+        </div>
+
+        <div className="border-r border-white/10 h-6 mx-1"></div>
+
+        {!isDeleting ? (
+          <button
+            onClick={onRequestDelete}
+            className="flex items-center justify-center p-2 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all"
+            title="حذف التصنيف"
+          >
+            <Trash2 size={18} />
+          </button>
+        ) : (
+          <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={onConfirmDelete}
+              className="bg-red-500/20 hover:bg-red-500/40 border border-red-500/50 text-red-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+            >
+              تأكيد الحذف
+            </button>
+            <button
+              onClick={onCancelDelete}
+              className="bg-white/10 hover:bg-white/20 p-1.5 rounded-lg transition-all"
+            >
+              <X size={16} />
+            </button>
           </div>
-          <span className={`w-2 h-8 ${accent.bg} rounded-full`}></span>
+        )}
+      </div>
+
+      {/* Title Header */}
+      <div className="flex items-center gap-3 mb-6 group/title">
+        {/* Drag handle for category */}
+        <div
+          {...dragHandleProps}
+          className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-white p-1 transition-colors"
+        >
+          <GripHorizontal size={20} />
+        </div>
+        <span className={`w-1.5 h-8 ${accent.bg} rounded-full`}></span>
+        <div className="flex-1 min-w-0">
           {isEditingTitle ? (
-            <div className="flex items-center gap-2 flex-1">
+            <div className="flex items-center gap-2 w-full">
               <input
                 autoFocus
                 type="text"
@@ -420,15 +520,12 @@ function CategoryCard({
                 onChange={(e) => setTitle(e.target.value)}
                 onBlur={saveTitle}
                 onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); }}
-                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-2xl font-bold w-full focus:outline-none"
+                className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-xl font-bold w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <button onClick={saveTitle} className="text-emerald-400">
-                <Check size={20} />
-              </button>
             </div>
           ) : (
-            <h2 className="text-2xl font-bold flex items-center gap-2 wrap-break-word line-clamp-2">
-              {title}
+            <h2 className="text-2xl font-bold flex items-center gap-2 group-hover/title:text-white transition-colors">
+              <span className="truncate">{title}</span>
               <button
                 onClick={() => setIsEditingTitle(true)}
                 className="opacity-100 md:opacity-0 md:group-hover/title:opacity-100 text-slate-500 hover:text-white transition-all shrink-0"
@@ -438,31 +535,37 @@ function CategoryCard({
             </h2>
           )}
         </div>
-        {/* Delete button */}
-        {!isDeleting ? (
-          <button
-            onClick={onRequestDelete}
-            className="opacity-100 md:opacity-0 md:group-hover/title:opacity-100 text-slate-500 hover:text-red-400 p-1 transition-all"
-          >
-            <Trash2 size={18} />
-          </button>
-        ) : (
-          <div className="flex items-center gap-2 animate-in fade-in">
-            <button
-              onClick={onConfirmDelete}
-              className="bg-red-500/20 hover:bg-red-500/40 border border-red-500/50 text-red-200 px-3 py-1 rounded-lg text-xs font-bold transition-all"
-            >
-              حذف
-            </button>
-            <button
-              onClick={onCancelDelete}
-              className="bg-white/10 hover:bg-white/20 px-2 py-1 rounded-lg transition-all"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        )}
       </div>
+
+      {/* Import Area */}
+      {showImport && (
+        <div className="mb-6 animate-in slide-in-from-top-2 duration-200">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
+            <textarea
+              autoFocus
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder="الصق المهام هنا (كل مهمة في سطر)..."
+              className="w-full bg-[#0f172a]/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm min-h-[100px] resize-none"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => { setShowImport(false); setImportText(""); }}
+                className="px-4 py-2 rounded-lg text-slate-400 hover:text-white text-sm transition-all"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleImport}
+                disabled={!importText.trim()}
+                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm font-bold transition-all"
+              >
+                استيراد
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add task input */}
       <div className="flex gap-2 mb-6">
