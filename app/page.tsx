@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { taskService, Task } from "@/lib/taskService";
@@ -10,6 +10,8 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -53,8 +55,12 @@ export default function Home() {
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
+    useSensor(MouseSensor),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -310,8 +316,12 @@ function CategoryCard({
   }
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
+    useSensor(MouseSensor),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -417,11 +427,11 @@ function CategoryCard({
               </button>
             </div>
           ) : (
-            <h2 className="text-2xl font-bold flex items-center gap-2">
+            <h2 className="text-2xl font-bold flex items-center gap-2 wrap-break-word line-clamp-2">
               {title}
               <button
                 onClick={() => setIsEditingTitle(true)}
-                className="opacity-0 group-hover/title:opacity-100 text-slate-500 hover:text-white transition-all"
+                className="opacity-100 md:opacity-0 md:group-hover/title:opacity-100 text-slate-500 hover:text-white transition-all shrink-0"
               >
                 <Edit2 size={16} />
               </button>
@@ -432,7 +442,7 @@ function CategoryCard({
         {!isDeleting ? (
           <button
             onClick={onRequestDelete}
-            className="opacity-0 group-hover/title:opacity-100 text-slate-500 hover:text-red-400 p-1 transition-all"
+            className="opacity-100 md:opacity-0 md:group-hover/title:opacity-100 text-slate-500 hover:text-red-400 p-1 transition-all"
           >
             <Trash2 size={18} />
           </button>
@@ -484,6 +494,7 @@ function CategoryCard({
                   task={task}
                   onToggle={() => toggleComplete(task)}
                   onDelete={() => deleteTask(task.id!)}
+                  onUpdate={(title) => taskService.updateTask(task.id!, { title })}
                 />
               ))}
               {activeTasks.length === 0 && completedTasks.length === 0 && (
@@ -507,6 +518,7 @@ function CategoryCard({
                   task={task}
                   onToggle={() => toggleComplete(task)}
                   onDelete={() => deleteTask(task.id!)}
+                  onUpdate={(title) => taskService.updateTask(task.id!, { title })}
                 />
               ))}
             </div>
@@ -524,10 +536,13 @@ interface SortableTaskItemProps {
   task: Task;
   onToggle: () => void;
   onDelete: () => void;
+  onUpdate: (title: string) => void;
 }
 
-function SortableTaskItem({ id, task, onToggle, onDelete }: SortableTaskItemProps) {
+function SortableTaskItem({ id, task, onToggle, onDelete, onUpdate }: SortableTaskItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(task.title);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -536,59 +551,154 @@ function SortableTaskItem({ id, task, onToggle, onDelete }: SortableTaskItemProp
     position: "relative" as const,
   };
 
+  const handleSave = () => {
+    if (editValue.trim() && editValue !== task.title) {
+      onUpdate(editValue.trim());
+    }
+    setIsEditing(false);
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="group flex items-center justify-between p-4 rounded-2xl border transition-all bg-[#1e293b] border-white/10 hover:border-white/30"
+      className={`group flex items-center justify-between p-4 rounded-2xl border transition-all bg-[#1e293b] border-white/10 hover:border-white/30 ${isDragging ? 'opacity-50' : ''} overflow-hidden`}
     >
-      <div className="flex items-center gap-4 flex-1">
-        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-white p-1">
+      <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-white p-1 shrink-0">
           <GripVertical size={20} />
         </div>
         <button
           onClick={onToggle}
-          className="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all border-slate-500 hover:border-white"
+          className="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all border-slate-500 hover:border-white shrink-0"
         >
           <Circle className="w-4 h-4 text-transparent" />
         </button>
-        <span className="text-lg text-slate-100">
-          {task.title}
-        </span>
+        {isEditing ? (
+          <textarea
+            autoFocus
+            rows={1}
+            className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded px-2 py-1 text-lg text-slate-100 focus:outline-none resize-none overflow-hidden"
+            value={editValue}
+            onChange={(e) => {
+              setEditValue(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = e.target.scrollHeight + 'px';
+            }}
+            onFocus={(e) => {
+              e.target.style.height = 'auto';
+              e.target.style.height = e.target.scrollHeight + 'px';
+            }}
+            onBlur={handleSave}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSave();
+              }
+              if (e.key === "Escape") {
+                setEditValue(task.title);
+                setIsEditing(false);
+              }
+            }}
+          />
+        ) : (
+          <span className="text-lg text-slate-100 flex-1 wrap-break-word">
+            {task.title}
+          </span>
+        )}
       </div>
-      <button
-        onClick={onDelete}
-        className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-2 transition-all"
-      >
-        <Trash2 size={20} />
-      </button>
+      <div className="flex items-center gap-1 shrink-0 mr-2">
+        {!isEditing && (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-500 hover:text-blue-400 p-2 transition-all"
+          >
+            <Edit2 size={18} />
+          </button>
+        )}
+        <button
+          onClick={onDelete}
+          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-500 hover:text-red-400 p-2 transition-all"
+        >
+          <Trash2 size={20} />
+        </button>
+      </div>
     </div>
   );
 }
 
 /* ─── Completed Task Item ─── */
 
-function TaskItem({ task, onToggle, onDelete }: { task: Task; onToggle: () => void; onDelete: () => void }) {
+function TaskItem({ task, onToggle, onDelete, onUpdate }: { task: Task; onToggle: () => void; onDelete: () => void; onUpdate: (title: string) => void }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(task.title);
+
+  const handleSave = () => {
+    if (editValue.trim() && editValue !== task.title) {
+      onUpdate(editValue.trim());
+    }
+    setIsEditing(false);
+  };
+
   return (
-    <div className="group flex items-center justify-between p-4 rounded-2xl border transition-all bg-emerald-500/5 border-emerald-500/20 opacity-70">
-      <div className="flex items-center gap-4 flex-1">
-        <div className="w-6 h-6"></div>
+    <div className="group flex items-center justify-between p-4 rounded-2xl border transition-all bg-emerald-500/5 border-emerald-500/20 opacity-70 overflow-hidden">
+      <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div className="w-6 h-6 shrink-0"></div>
         <button
           onClick={onToggle}
-          className="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all bg-emerald-500 border-emerald-500"
+          className="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all bg-emerald-500 border-emerald-500 shrink-0"
         >
           <CheckCircle2 size={16} className="text-white" />
         </button>
-        <span className="text-lg line-through text-slate-400">
-          {task.title}
-        </span>
+        {isEditing ? (
+          <textarea
+            autoFocus
+            rows={1}
+            className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded px-2 py-1 text-lg text-slate-100 focus:outline-none resize-none overflow-hidden"
+            value={editValue}
+            onChange={(e) => {
+              setEditValue(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = e.target.scrollHeight + 'px';
+            }}
+            onFocus={(e) => {
+              e.target.style.height = 'auto';
+              e.target.style.height = e.target.scrollHeight + 'px';
+            }}
+            onBlur={handleSave}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSave();
+              }
+              if (e.key === "Escape") {
+                setEditValue(task.title);
+                setIsEditing(false);
+              }
+            }}
+          />
+        ) : (
+          <span className="text-lg line-through text-slate-400 flex-1 wrap-break-word">
+            {task.title}
+          </span>
+        )}
       </div>
-      <button
-        onClick={onDelete}
-        className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-2 transition-all"
-      >
-        <Trash2 size={20} />
-      </button>
+      <div className="flex items-center gap-1 shrink-0 mr-2">
+        {!isEditing && (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-blue-400 p-2 transition-all"
+          >
+            <Edit2 size={18} />
+          </button>
+        )}
+        <button
+          onClick={onDelete}
+          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-500 hover:text-red-400 p-2 transition-all"
+        >
+          <Trash2 size={20} />
+        </button>
+      </div>
     </div>
   );
 }
