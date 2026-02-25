@@ -35,9 +35,11 @@ import {
   Plus,
   X,
   GripHorizontal,
+  Users,
   Share2,
   Download,
 } from "lucide-react";
+import Link from "next/link";
 
 const ACCENT_COLORS = [
   { bg: "bg-blue-500", btn: "bg-blue-600 hover:bg-blue-500", ring: "focus:ring-blue-500", border: "border-blue-500/30" },
@@ -138,17 +140,26 @@ export default function Home() {
       <div className="max-w-7xl mx-auto">
         <header className="flex justify-between items-center mb-12">
           <div>
-            <h1 className="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+            <h1 className="text-4xl font-extrabold bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-purple-500">
               MyTO-DO
             </h1>
             <p className="text-slate-400 mt-2">مرحباً بك، {user.displayName || user.email}</p>
           </div>
-          <button
-            onClick={logout}
-            className="bg-red-500/20 hover:bg-red-500/40 border border-red-500/50 text-red-200 px-4 py-2 rounded-lg transition-all text-sm"
-          >
-            تسجيل الخروج
-          </button>
+          <div className="flex gap-4">
+            <Link
+              href="/shared"
+              className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/50 text-emerald-200 px-4 py-2 rounded-lg transition-all text-sm font-bold"
+            >
+              <Users size={18} />
+              <span>المهام المشتركة</span>
+            </Link>
+            <button
+              onClick={logout}
+              className="bg-red-500/20 hover:bg-red-500/40 border border-red-500/50 text-red-200 px-4 py-2 rounded-lg transition-all text-sm"
+            >
+              تسجيل الخروج
+            </button>
+          </div>
         </header>
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
@@ -334,7 +345,7 @@ function CategoryCard({
   );
 
   useEffect(() => {
-    const unsub = taskService.subscribeToTasks(userId, category.id!, setTasks);
+    const unsub = taskService.subscribeToTasks(category.id!, setTasks, userId);
     return () => unsub();
   }, [userId, category.id]);
 

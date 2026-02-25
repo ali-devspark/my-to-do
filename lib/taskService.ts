@@ -44,13 +44,22 @@ export const taskService = {
         return await deleteDoc(taskDoc);
     },
 
-    subscribeToTasks: (userId: string, categoryId: string, callback: (tasks: Task[]) => void) => {
-        const q = query(
-            collection(db, "tasks"),
-            where("userId", "==", userId),
-            where("categoryId", "==", categoryId),
-            orderBy("order", "asc")
-        );
+    subscribeToTasks: (categoryId: string, callback: (tasks: Task[]) => void, userId?: string) => {
+        let q;
+        if (userId) {
+            q = query(
+                collection(db, "tasks"),
+                where("userId", "==", userId),
+                where("categoryId", "==", categoryId),
+                orderBy("order", "asc")
+            );
+        } else {
+            q = query(
+                collection(db, "tasks"),
+                where("categoryId", "==", categoryId),
+                orderBy("order", "asc")
+            );
+        }
 
         return onSnapshot(q, (snapshot) => {
             const tasks = snapshot.docs.map((docSnap) => ({
