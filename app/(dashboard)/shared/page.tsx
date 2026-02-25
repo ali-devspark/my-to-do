@@ -54,7 +54,7 @@ const ACCENT_COLORS = [
 ];
 
 export default function SharedPage() {
-    const { user, loading, logout } = useAuth();
+    const { user, loading } = useAuth();
     const router = useRouter();
     const [categories, setCategories] = useState<Category[]>([]);
     const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -115,9 +115,6 @@ export default function SharedPage() {
 
     const handleDeleteCategory = async (categoryId: string) => {
         try {
-            // In a shared context, "delete" might mean "leave" if you are not the owner
-            // But for now, let's stick to the service's deleteCategory which deletes the document.
-            // Better: if isShared and not owner, just remove from members.
             const category = categories.find(c => c.id === categoryId);
             if (category && category.userId !== user?.uid) {
                 const newMembers = (category.members || []).filter(m => m !== user?.uid);
@@ -131,145 +128,118 @@ export default function SharedPage() {
         }
     };
 
-    const handleCategoryDragEnd = async (event: DragEndEvent) => {
-        // Shared categories reordering is tricky if they are from different users.
-        // For now, let's keep it simple.
-    };
-
     if (loading || !user) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
+            <div className="flex items-center justify-center py-20">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
             </div>
         );
     }
 
     return (
-        <main className="min-h-screen bg-[#0f172a] text-white p-4 md:p-8 font-sans" dir="rtl">
-            <div className="max-w-7xl mx-auto">
-                <header className="flex justify-between items-center mb-12">
-                    <div className="flex items-center gap-6">
-                        <Link href="/" className="bg-white/5 hover:bg-white/10 p-3 rounded-2xl transition-all border border-white/10">
-                            <HomeIcon size={24} />
-                        </Link>
-                        <div>
-                            <h1 className="text-4xl font-extrabold bg-clip-text text-transparent bg-linear-to-r from-emerald-400 to-cyan-500">
-                                التصنيفات المشتركة
-                            </h1>
-                            <p className="text-slate-400 mt-2">تعاون مع زملائك في إنجاز المهام</p>
+        <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {categories.map((category, index) => (
+                    <CategoryCard
+                        key={category.id!}
+                        category={category}
+                        accentIndex={index % ACCENT_COLORS.length}
+                        userId={user.uid}
+                        isDeleting={deletingCategoryId === category.id}
+                        onRequestDelete={() => setDeletingCategoryId(category.id!)}
+                        onCancelDelete={() => setDeletingCategoryId(null)}
+                        onConfirmDelete={() => handleDeleteCategory(category.id!)}
+                    />
+                ))}
+
+                {/* Actions Card: Join or Create */}
+                <div className="bg-white/5 backdrop-blur-md border-2 border-dashed border-white/10 rounded-3xl p-6 flex flex-col items-center justify-center min-h-[220px] gap-6">
+                    {!isAddingCategory && !isJoining ? (
+                        <>
+                            <button
+                                onClick={() => setIsAddingCategory(true)}
+                                className="w-full flex items-center gap-4 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 p-4 rounded-2xl transition-all group"
+                            >
+                                <div className="bg-emerald-500 p-2 rounded-xl text-white group-hover:scale-110 transition-transform">
+                                    <Plus size={20} />
+                                </div>
+                                <span className="font-bold">إنشاء تصنيف مشترك جديد</span>
+                            </button>
+                            <button
+                                onClick={() => setIsJoining(true)}
+                                className="w-full flex items-center gap-4 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 p-4 rounded-2xl transition-all group"
+                            >
+                                <div className="bg-blue-500 p-2 rounded-xl text-white group-hover:scale-110 transition-transform">
+                                    <LinkIcon size={20} />
+                                </div>
+                                <span className="font-bold">انضمام عبر رمز</span>
+                            </button>
+                        </>
+                    ) : isAddingCategory ? (
+                        <div className="w-full space-y-4">
+                            <h3 className="text-center font-bold text-lg">إنشاء تصنيف مشترك</h3>
+                            <input
+                                autoFocus
+                                type="text"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleAddCategory();
+                                    if (e.key === "Escape") setIsAddingCategory(false);
+                                }}
+                                placeholder="اسم التصنيف..."
+                                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-center"
+                            />
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleAddCategory}
+                                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-2 rounded-xl font-bold transition-all"
+                                >
+                                    إنشاء
+                                </button>
+                                <button
+                                    onClick={() => { setIsAddingCategory(false); setNewCategoryName(""); }}
+                                    className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    <button
-                        onClick={logout}
-                        className="bg-red-500/20 hover:bg-red-500/40 border border-red-500/50 text-red-200 px-4 py-2 rounded-lg transition-all text-sm"
-                    >
-                        تسجيل الخروج
-                    </button>
-                </header>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {categories.map((category, index) => (
-                        <CategoryCard
-                            key={category.id!}
-                            category={category}
-                            accentIndex={index % ACCENT_COLORS.length}
-                            userId={user.uid}
-                            isDeleting={deletingCategoryId === category.id}
-                            onRequestDelete={() => setDeletingCategoryId(category.id!)}
-                            onCancelDelete={() => setDeletingCategoryId(null)}
-                            onConfirmDelete={() => handleDeleteCategory(category.id!)}
-                        />
-                    ))}
-
-                    {/* Actions Card: Join or Create */}
-                    <div className="bg-white/5 backdrop-blur-md border-2 border-dashed border-white/10 rounded-3xl p-6 flex flex-col items-center justify-center min-h-[220px] gap-6">
-                        {!isAddingCategory && !isJoining ? (
-                            <>
+                    ) : (
+                        <div className="w-full space-y-4">
+                            <h3 className="text-center font-bold text-lg">انضمام لتصنيف</h3>
+                            <input
+                                autoFocus
+                                type="text"
+                                value={joinCode}
+                                onChange={(e) => setJoinCode(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleJoinCategory();
+                                    if (e.key === "Escape") { setIsJoining(false); setError(null); }
+                                }}
+                                placeholder="أدخل الرمز (مثلاً: A1B2C3D4)..."
+                                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-center uppercase"
+                            />
+                            {error && <p className="text-red-400 text-xs text-center">{error}</p>}
+                            <div className="flex gap-2">
                                 <button
-                                    onClick={() => setIsAddingCategory(true)}
-                                    className="w-full flex items-center gap-4 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 p-4 rounded-2xl transition-all group"
+                                    onClick={handleJoinCategory}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-500 py-2 rounded-xl font-bold transition-all"
                                 >
-                                    <div className="bg-emerald-500 p-2 rounded-xl text-white group-hover:scale-110 transition-transform">
-                                        <Plus size={20} />
-                                    </div>
-                                    <span className="font-bold">إنشاء تصنيف مشترك جديد</span>
+                                    انضمام
                                 </button>
                                 <button
-                                    onClick={() => setIsJoining(true)}
-                                    className="w-full flex items-center gap-4 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 p-4 rounded-2xl transition-all group"
+                                    onClick={() => { setIsJoining(false); setJoinCode(""); setError(null); }}
+                                    className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all"
                                 >
-                                    <div className="bg-blue-500 p-2 rounded-xl text-white group-hover:scale-110 transition-transform">
-                                        <LinkIcon size={20} />
-                                    </div>
-                                    <span className="font-bold">انضمام عبر رمز</span>
+                                    <X size={20} />
                                 </button>
-                            </>
-                        ) : isAddingCategory ? (
-                            <div className="w-full space-y-4">
-                                <h3 className="text-center font-bold text-lg">إنشاء تصنيف مشترك</h3>
-                                <input
-                                    autoFocus
-                                    type="text"
-                                    value={newCategoryName}
-                                    onChange={(e) => setNewCategoryName(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") handleAddCategory();
-                                        if (e.key === "Escape") setIsAddingCategory(false);
-                                    }}
-                                    placeholder="اسم التصنيف..."
-                                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-center"
-                                />
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={handleAddCategory}
-                                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-2 rounded-xl font-bold transition-all"
-                                    >
-                                        إنشاء
-                                    </button>
-                                    <button
-                                        onClick={() => { setIsAddingCategory(false); setNewCategoryName(""); }}
-                                        className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all"
-                                    >
-                                        <X size={20} />
-                                    </button>
-                                </div>
                             </div>
-                        ) : (
-                            <div className="w-full space-y-4">
-                                <h3 className="text-center font-bold text-lg">انضمام لتصنيف</h3>
-                                <input
-                                    autoFocus
-                                    type="text"
-                                    value={joinCode}
-                                    onChange={(e) => setJoinCode(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") handleJoinCategory();
-                                        if (e.key === "Escape") { setIsJoining(false); setError(null); }
-                                    }}
-                                    placeholder="أدخل الرمز (مثلاً: A1B2C3D4)..."
-                                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-center uppercase"
-                                />
-                                {error && <p className="text-red-400 text-xs text-center">{error}</p>}
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={handleJoinCategory}
-                                        className="flex-1 bg-blue-600 hover:bg-blue-500 py-2 rounded-xl font-bold transition-all"
-                                    >
-                                        انضمام
-                                    </button>
-                                    <button
-                                        onClick={() => { setIsJoining(false); setJoinCode(""); setError(null); }}
-                                        className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all"
-                                    >
-                                        <X size={20} />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
-        </main>
+        </div>
     );
 }
 
@@ -305,7 +275,6 @@ function CategoryCard({
     const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
 
     useEffect(() => {
-        // Shared tasks sub: no userId filter
         const unsub = taskService.subscribeToTasks(category.id!, setTasks);
         return () => unsub();
     }, [category.id]);
