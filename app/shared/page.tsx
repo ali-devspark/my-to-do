@@ -42,6 +42,7 @@ import {
     Home as HomeIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { userService, UserProfile } from "@/lib/userService";
 
 const ACCENT_COLORS = [
     { bg: "bg-blue-500", btn: "bg-blue-600 hover:bg-blue-500", ring: "focus:ring-blue-500", border: "border-blue-500/30" },
@@ -300,12 +301,31 @@ function CategoryCard({
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
     const [showMembers, setShowMembers] = useState(false);
+    const [memberProfiles, setMemberProfiles] = useState<UserProfile[]>([]);
+    const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
 
     useEffect(() => {
         // Shared tasks sub: no userId filter
         const unsub = taskService.subscribeToTasks(category.id!, setTasks);
         return () => unsub();
     }, [category.id]);
+
+    useEffect(() => {
+        if (showMembers && category.members && category.members.length > 0) {
+            const fetchProfiles = async () => {
+                setIsLoadingProfiles(true);
+                try {
+                    const profiles = await userService.getProfiles(category.members!);
+                    setMemberProfiles(profiles);
+                } catch (err) {
+                    console.error("Error fetching member profiles:", err);
+                } finally {
+                    setIsLoadingProfiles(false);
+                }
+            };
+            fetchProfiles();
+        }
+    }, [showMembers, category.members]);
 
     const activeTasks = useMemo(() => tasks.filter((t) => !t.completed), [tasks]);
     const completedTasks = useMemo(() => tasks.filter((t) => t.completed), [tasks]);
@@ -383,16 +403,32 @@ function CategoryCard({
                         </button>
                     </div>
                     <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar">
-                        {category.members?.map((memberId, i) => (
-                            <div key={memberId} className="bg-white/5 p-3 rounded-xl flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold">
-                                    {memberId.substring(0, 2).toUpperCase()}
-                                </div>
-                                <span className="text-sm truncate">
-                                    {memberId === userId ? "أنت" : `مستخدم ${i + 1}`}
-                                </span>
+                        {isLoadingProfiles ? (
+                            <div className="flex justify-center p-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
                             </div>
-                        ))}
+                        ) : (
+                            category.members?.map((memberId) => {
+                                const profile = memberProfiles.find(p => p.uid === memberId);
+                                return (
+                                    <div key={memberId} className="bg-white/5 p-3 rounded-xl flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold overflow-hidden">
+                                            {profile?.photoURL ? (
+                                                <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                (profile?.name || "م").substring(0, 1).toUpperCase()
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium truncate">
+                                                {memberId === userId ? `${profile?.name || "أنت"} (أنت)` : (profile?.name || "مستخدم جديد")}
+                                            </p>
+                                            <p className="text-[10px] text-slate-500 truncate">{profile?.email}</p>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
                     <div className="mt-4 pt-4 border-t border-white/10 text-center">
                         <p className="text-xs text-slate-400 mb-2">رمز المشاركة:</p>

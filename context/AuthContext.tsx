@@ -9,6 +9,7 @@ import {
     User,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { userService } from "@/lib/userService";
 
 interface AuthContextType {
     user: User | null;
@@ -24,8 +25,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user);
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
+                await userService.saveProfile(firebaseUser);
+            }
+            setUser(firebaseUser);
             setLoading(false);
         });
         return () => unsubscribe();
