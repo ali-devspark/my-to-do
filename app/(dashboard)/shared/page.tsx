@@ -20,6 +20,7 @@ import {
     Link as LinkIcon,
 } from "lucide-react";
 import { userService, UserProfile } from "@/lib/userService";
+import TaskDetailsModal from "@/components/TaskDetailsModal";
 
 const ACCENT_COLORS = [
     { bg: "bg-blue-500", btn: "bg-blue-600 hover:bg-blue-500", ring: "focus:ring-blue-500", border: "border-blue-500/30" },
@@ -239,6 +240,9 @@ function CategoryCard({
     const [showMembers, setShowMembers] = useState(false);
     const [memberProfiles, setMemberProfiles] = useState<UserProfile[]>([]);
     const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+    const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId) || null, [tasks, selectedTaskId]);
 
     useEffect(() => {
         const unsub = taskService.subscribeToTasks(category.id!, setTasks);
@@ -284,14 +288,6 @@ function CategoryCard({
         }
     };
 
-    const deleteTask = async (id: string) => {
-        try {
-            await taskService.deleteTask(id);
-        } catch (err) {
-            console.error("Failed to delete task:", err);
-        }
-    };
-
     const copyShareCode = () => {
         if (!category.shareCode) return;
         navigator.clipboard.writeText(category.shareCode).then(() => {
@@ -311,14 +307,6 @@ function CategoryCard({
             }
         } else {
             setTitle(category.name);
-        }
-    };
-
-    const handleUpdateTask = async (taskId: string, title: string) => {
-        try {
-            await taskService.updateTask(taskId, { title });
-        } catch (err) {
-            console.error("Failed to update task:", err);
         }
     };
 
@@ -487,8 +475,7 @@ function CategoryCard({
                             key={task.id!}
                             task={task}
                             onToggle={() => toggleComplete(task)}
-                            onDelete={() => deleteTask(task.id!)}
-                            onUpdate={(title) => handleUpdateTask(task.id!, title)}
+                            onSelect={() => setSelectedTaskId(task.id!)}
                         />
                     ))}
                     {activeTasks.length === 0 && completedTasks.length === 0 && (
@@ -508,14 +495,20 @@ function CategoryCard({
                                     key={task.id!}
                                     task={task}
                                     onToggle={() => toggleComplete(task)}
-                                    onDelete={() => deleteTask(task.id!)}
-                                    onUpdate={(title) => handleUpdateTask(task.id!, title)}
+                                    onSelect={() => setSelectedTaskId(task.id!)}
                                 />
                             ))}
                         </div>
                     </div>
                 )}
             </div>
+
+            {selectedTask && (
+                <TaskDetailsModal 
+                    task={selectedTask} 
+                    onClose={() => setSelectedTaskId(null)} 
+                />
+            )}
         </section>
     );
 }
@@ -523,24 +516,12 @@ function CategoryCard({
 function TaskItem({
     task,
     onToggle,
-    onDelete,
-    onUpdate
+    onSelect
 }: {
     task: Task;
     onToggle: () => void;
-    onDelete: () => void;
-    onUpdate: (title: string) => void;
+    onSelect: () => void;
 }) {
-    const [isEditing, setIsEditing] = useState(false);
-    const [editValue, setEditValue] = useState(task.title);
-
-    const handleSave = () => {
-        if (editValue.trim() && editValue !== task.title) {
-            onUpdate(editValue.trim());
-        }
-        setIsEditing(false);
-    };
-
     return (
         <div className={`group flex items-center justify-between p-4 rounded-2xl border transition-all ${task.completed ? 'bg-emerald-500/5 border-emerald-500/20 opacity-70' : 'bg-[#1e293b] border-white/10 hover:border-white/30'} overflow-hidden`}>
             <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -551,50 +532,12 @@ function TaskItem({
                     {task.completed ? <CheckCircle2 size={16} className="text-white" /> : <Circle className="w-4 h-4 text-transparent" />}
                 </button>
 
-                {isEditing ? (
-                    <textarea
-                        autoFocus
-                        rows={1}
-                        className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded px-2 py-1 text-lg text-slate-100 focus:outline-none resize-none overflow-hidden"
-                        value={editValue}
-                        onChange={(e) => {
-                            setEditValue(e.target.value);
-                            e.target.style.height = 'auto';
-                            e.target.style.height = e.target.scrollHeight + 'px';
-                        }}
-                        onBlur={handleSave}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSave();
-                            }
-                            if (e.key === "Escape") {
-                                setEditValue(task.title);
-                                setIsEditing(false);
-                            }
-                        }}
-                    />
-                ) : (
-                    <span className={`text-lg flex-1 wrap-break-word ${task.completed ? 'line-through text-slate-400' : 'text-slate-100'}`}>
-                        {task.title}
-                    </span>
-                )}
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-                {!isEditing && !task.completed && (
-                    <button
-                        onClick={() => setIsEditing(true)}
-                        className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-blue-400 p-2 transition-all"
-                    >
-                        <Edit2 size={18} />
-                    </button>
-                )}
-                <button
-                    onClick={onDelete}
-                    className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-2 transition-all"
+                <span 
+                    className={`text-lg flex-1 wrap-break-word cursor-pointer hover:underline decoration-white/30 underline-offset-4 ${task.completed ? 'line-through text-slate-400' : 'text-slate-100'}`}
+                    onClick={onSelect}
                 >
-                    <Trash2 size={18} />
-                </button>
+                    {task.title}
+                </span>
             </div>
         </div>
     );
