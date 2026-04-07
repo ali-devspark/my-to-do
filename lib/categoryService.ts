@@ -26,7 +26,7 @@ export interface Category {
 
 export const categoryService = {
     addCategory: async (userId: string, name: string, order: number, isShared: boolean = false) => {
-        const categoryData: any = {
+        const categoryData: Partial<Category> = {
             userId,
             name,
             order,

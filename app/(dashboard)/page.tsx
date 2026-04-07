@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { taskService, Task } from "@/lib/taskService";
@@ -9,7 +9,6 @@ import {
     DndContext,
     closestCenter,
     KeyboardSensor,
-    PointerSensor,
     MouseSensor,
     TouchSensor,
     useSensor,
@@ -35,11 +34,10 @@ import {
     Plus,
     X,
     GripHorizontal,
-    Users,
     Share2,
     Download,
 } from "lucide-react";
-import Link from "next/link";
+import TaskDetailsModal from "@/components/TaskDetailsModal";
 
 const ACCENT_COLORS = [
     { bg: "bg-blue-500", btn: "bg-blue-600 hover:bg-blue-500", ring: "focus:ring-blue-500", border: "border-blue-500/30" },
@@ -299,6 +297,9 @@ function CategoryCard({
     const [showImport, setShowImport] = useState(false);
     const [importText, setImportText] = useState("");
     const [isCopied, setIsCopied] = useState(false);
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+    const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId) || null, [tasks, selectedTaskId]);
 
     // Sync title when category name changes from external source (e.g. Firestore)
     if (title !== category.name && !isEditingTitle) {
@@ -345,13 +346,7 @@ function CategoryCard({
         }
     };
 
-    const deleteTask = async (id: string) => {
-        try {
-            await taskService.deleteTask(id);
-        } catch (err) {
-            console.error("Failed to delete task:", err);
-        }
-    };
+
 
     const handleTaskDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
@@ -573,8 +568,7 @@ function CategoryCard({
                                     id={task.id!}
                                     task={task}
                                     onToggle={() => toggleComplete(task)}
-                                    onDelete={() => deleteTask(task.id!)}
-                                    onUpdate={(title) => taskService.updateTask(task.id!, { title })}
+                                    onSelect={() => setSelectedTaskId(task.id!)}
                                 />
                             ))}
                             {activeTasks.length === 0 && completedTasks.length === 0 && (
@@ -597,14 +591,20 @@ function CategoryCard({
                                     key={task.id!}
                                     task={task}
                                     onToggle={() => toggleComplete(task)}
-                                    onDelete={() => deleteTask(task.id!)}
-                                    onUpdate={(title) => taskService.updateTask(task.id!, { title })}
+                                    onSelect={() => setSelectedTaskId(task.id!)}
                                 />
                             ))}
                         </div>
                     </div>
                 )}
             </div>
+
+            {selectedTask && (
+                <TaskDetailsModal 
+                    task={selectedTask} 
+                    onClose={() => setSelectedTaskId(null)} 
+                />
+            )}
         </section>
     );
 }
@@ -615,27 +615,17 @@ interface SortableTaskItemProps {
     id: string;
     task: Task;
     onToggle: () => void;
-    onDelete: () => void;
-    onUpdate: (title: string) => void;
+    onSelect: () => void;
 }
 
-function SortableTaskItem({ id, task, onToggle, onDelete, onUpdate }: SortableTaskItemProps) {
+function SortableTaskItem({ id, task, onToggle, onSelect }: SortableTaskItemProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-    const [isEditing, setIsEditing] = useState(false);
-    const [editValue, setEditValue] = useState(task.title);
 
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
         zIndex: isDragging ? 10 : 0,
         position: "relative" as const,
-    };
-
-    const handleSave = () => {
-        if (editValue.trim() && editValue !== task.title) {
-            onUpdate(editValue.trim());
-        }
-        setIsEditing(false);
     };
 
     return (
@@ -654,54 +644,12 @@ function SortableTaskItem({ id, task, onToggle, onDelete, onUpdate }: SortableTa
                 >
                     <Circle className="w-4 h-4 text-transparent" />
                 </button>
-                {isEditing ? (
-                    <textarea
-                        autoFocus
-                        rows={1}
-                        className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded px-2 py-1 text-lg text-slate-100 focus:outline-none resize-none overflow-hidden"
-                        value={editValue}
-                        onChange={(e) => {
-                            setEditValue(e.target.value);
-                            e.target.style.height = 'auto';
-                            e.target.style.height = e.target.scrollHeight + 'px';
-                        }}
-                        onFocus={(e) => {
-                            e.target.style.height = 'auto';
-                            e.target.style.height = e.target.scrollHeight + 'px';
-                        }}
-                        onBlur={handleSave}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSave();
-                            }
-                            if (e.key === "Escape") {
-                                setEditValue(task.title);
-                                setIsEditing(false);
-                            }
-                        }}
-                    />
-                ) : (
-                    <span className="text-lg text-slate-100 flex-1 wrap-break-word">
-                        {task.title}
-                    </span>
-                )}
-            </div>
-            <div className="flex items-center gap-1 shrink-0 mr-2">
-                {!isEditing && (
-                    <button
-                        onClick={() => setIsEditing(true)}
-                        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-500 hover:text-blue-400 p-2 transition-all"
-                    >
-                        <Edit2 size={18} />
-                    </button>
-                )}
-                <button
-                    onClick={onDelete}
-                    className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-500 hover:text-red-400 p-2 transition-all"
+                <span 
+                    className="text-lg text-slate-100 flex-1 wrap-break-word cursor-pointer hover:underline decoration-white/30 underline-offset-4"
+                    onClick={onSelect}
                 >
-                    <Trash2 size={20} />
-                </button>
+                    {task.title}
+                </span>
             </div>
         </div>
     );
@@ -709,17 +657,7 @@ function SortableTaskItem({ id, task, onToggle, onDelete, onUpdate }: SortableTa
 
 /* ─── Completed Task Item ─── */
 
-function TaskItem({ task, onToggle, onDelete, onUpdate }: { task: Task; onToggle: () => void; onDelete: () => void; onUpdate: (title: string) => void }) {
-    const [isEditing, setIsEditing] = useState(false);
-    const [editValue, setEditValue] = useState(task.title);
-
-    const handleSave = () => {
-        if (editValue.trim() && editValue !== task.title) {
-            onUpdate(editValue.trim());
-        }
-        setIsEditing(false);
-    };
-
+function TaskItem({ task, onToggle, onSelect }: { task: Task; onToggle: () => void; onSelect: () => void }) {
     return (
         <div className="group flex items-center justify-between p-4 rounded-2xl border transition-all bg-emerald-500/5 border-emerald-500/20 opacity-70 overflow-hidden">
             <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -730,54 +668,12 @@ function TaskItem({ task, onToggle, onDelete, onUpdate }: { task: Task; onToggle
                 >
                     <CheckCircle2 size={16} className="text-white" />
                 </button>
-                {isEditing ? (
-                    <textarea
-                        autoFocus
-                        rows={1}
-                        className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded px-2 py-1 text-lg text-slate-100 focus:outline-none resize-none overflow-hidden"
-                        value={editValue}
-                        onChange={(e) => {
-                            setEditValue(e.target.value);
-                            e.target.style.height = 'auto';
-                            e.target.style.height = e.target.scrollHeight + 'px';
-                        }}
-                        onFocus={(e) => {
-                            e.target.style.height = 'auto';
-                            e.target.style.height = e.target.scrollHeight + 'px';
-                        }}
-                        onBlur={handleSave}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSave();
-                            }
-                            if (e.key === "Escape") {
-                                setEditValue(task.title);
-                                setIsEditing(false);
-                            }
-                        }}
-                    />
-                ) : (
-                    <span className="text-lg line-through text-slate-400 flex-1 wrap-break-word">
-                        {task.title}
-                    </span>
-                )}
-            </div>
-            <div className="flex items-center gap-1 shrink-0 mr-2">
-                {!isEditing && (
-                    <button
-                        onClick={() => setIsEditing(true)}
-                        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-blue-400 p-2 transition-all"
-                    >
-                        <Edit2 size={18} />
-                    </button>
-                )}
-                <button
-                    onClick={onDelete}
-                    className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-500 hover:text-red-400 p-2 transition-all"
+                <span 
+                    className="text-lg line-through text-slate-400 flex-1 wrap-break-word cursor-pointer hover:text-slate-300"
+                    onClick={onSelect}
                 >
-                    <Trash2 size={20} />
-                </button>
+                    {task.title}
+                </span>
             </div>
         </div>
     );

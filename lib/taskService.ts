@@ -12,6 +12,12 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
+export interface Subtask {
+    id: string;
+    title: string;
+    completed: boolean;
+}
+
 export interface Task {
     id?: string;
     userId: string;
@@ -20,6 +26,7 @@ export interface Task {
     categoryId: string;
     createdAt: Timestamp;
     order?: number;
+    subtasks?: Subtask[];
 }
 
 export const taskService = {

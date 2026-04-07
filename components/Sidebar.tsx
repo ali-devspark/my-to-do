@@ -9,9 +9,7 @@ import {
     Users,
     LogOut,
     Menu,
-    X,
-    Plus,
-    Home
+    X
 } from "lucide-react";
 
 export function Sidebar() {
@@ -34,7 +32,7 @@ export function Sidebar() {
         },
     ];
 
-    const NavContent = () => (
+    const renderNavContent = () => (
         <div className="flex flex-col h-full bg-[#0f172a] text-white border-l border-white/10 w-64">
             <div className="p-6">
                 <h1 className="text-2xl font-extrabold bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-purple-500">
@@ -65,6 +63,10 @@ export function Sidebar() {
                 })}
             </nav>
 
+            <div className="p-4 text-center text-slate-400 text-xs">
+                v 1.5.0
+            </div>
+
             <div className="p-4 border-t border-white/10">
                 <button
                     onClick={logout}
@@ -94,7 +96,7 @@ export function Sidebar() {
 
             {/* Desktop Sidebar */}
             <aside className="hidden lg:flex fixed top-0 right-0 h-screen z-30">
-                <NavContent />
+                {renderNavContent()}
             </aside>
 
             {/* Mobile Drawer Overlay */}
@@ -114,7 +116,7 @@ export function Sidebar() {
                             >
                                 <X size={24} />
                             </button>
-                            <NavContent />
+                            {renderNavContent()}
                         </div>
                     </div>
                 </div>

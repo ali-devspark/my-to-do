@@ -1,31 +1,12 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { taskService, Task } from "@/lib/taskService";
 import { categoryService, Category } from "@/lib/categoryService";
+
 import {
-    DndContext,
-    closestCenter,
-    KeyboardSensor,
-    PointerSensor,
-    MouseSensor,
-    TouchSensor,
-    useSensor,
-    useSensors,
-    DragEndEvent,
-} from "@dnd-kit/core";
-import {
-    arrayMove,
-    SortableContext,
-    sortableKeyboardCoordinates,
-    horizontalListSortingStrategy,
-    useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import {
-    GripVertical,
     CheckCircle2,
     Circle,
     Trash2,
@@ -33,15 +14,11 @@ import {
     Check,
     Plus,
     X,
-    GripHorizontal,
     Share2,
-    Download,
     Users,
     Copy,
     Link as LinkIcon,
-    Home as HomeIcon,
 } from "lucide-react";
-import Link from "next/link";
 import { userService, UserProfile } from "@/lib/userService";
 
 const ACCENT_COLORS = [
@@ -64,18 +41,6 @@ export default function SharedPage() {
     const [error, setError] = useState<string | null>(null);
     const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
 
-    const sensors = useSensors(
-        useSensor(MouseSensor),
-        useSensor(TouchSensor, {
-            activationConstraint: {
-                delay: 250,
-                tolerance: 5,
-            },
-        }),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        })
-    );
 
     useEffect(() => {
         if (!loading && !user) {
@@ -108,8 +73,9 @@ export default function SharedPage() {
             await categoryService.joinCategoryByCode(user.uid, joinCode.trim());
             setJoinCode("");
             setIsJoining(false);
-        } catch (err: any) {
-            setError(err.message || "فشل الانضمام للتصنيف");
+        } catch (err: unknown) {
+            const error = err as Error & { message?: string };
+            setError(error.message || "فشل الانضمام للتصنيف");
         }
     };
 
@@ -383,6 +349,7 @@ function CategoryCard({
                                     <div key={memberId} className="bg-white/5 p-3 rounded-xl flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold overflow-hidden">
                                             {profile?.photoURL ? (
+                                                /* eslint-disable-next-line @next/next/no-img-element */
                                                 <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" />
                                             ) : (
                                                 (profile?.name || "م").substring(0, 1).toUpperCase()
