@@ -60,6 +60,8 @@ export default function Home() {
     const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
     const [tempTitle, setTempTitle] = useState("");
     const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+    const [isAddingTaskMobile, setIsAddingTaskMobile] = useState(false);
+    const [newTaskMobile, setNewTaskMobile] = useState("");
 
     const sensors = useSensors(
         useSensor(MouseSensor),
@@ -135,6 +137,20 @@ export default function Home() {
         }
     };
 
+    const handleAddTaskMobile = async () => {
+        if (!newTaskMobile.trim() || !activeCategoryId || activeCategoryId === "add") return;
+        try {
+            // We need a way to trigger the specific category's task addition logic,
+            // or we use taskService directly here. 
+            // Using taskService directly is better for page-level state.
+            await taskService.addTask(user!.uid, newTaskMobile.trim(), activeCategoryId, 999);
+            setNewTaskMobile("");
+            setIsAddingTaskMobile(false);
+        } catch (err) {
+            console.error("Failed to add task on mobile:", err);
+        }
+    };
+
     if (loading || !user) {
         return (
             <div className="flex items-center justify-center py-20">
@@ -144,9 +160,9 @@ export default function Home() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-4 pb-20 sm:pb-0">
+        <div className="max-w-7xl mx-auto px-4 pb-20 sm:pb-0 relative min-h-screen">
             {/* Mobile Tab Navigation */}
-            <div className="md:hidden flex overflow-x-auto no-scrollbar gap-2 mb-6 py-2 -mx-4 px-4 sticky top-0 z-20 bg-[#0f172a]/80 backdrop-blur-md border-b border-white/10">
+            <div className="md:hidden flex overflow-x-auto no-scrollbar gap-2 mb-6 py-2 -mx-4 px-4 sticky top-[73px] z-20 bg-[#0f172a]/80 backdrop-blur-md border-b border-white/10">
                 {categories.map((category, index) => {
                     const isEditing = editingCategoryId === category.id;
 
@@ -332,6 +348,53 @@ export default function Home() {
                     task={selectedTask} 
                     onClose={() => setSelectedTask(null)} 
                 />
+            )}
+
+            {/* Mobile Add Task FAB */}
+            <div className="md:hidden">
+                {!isAddingCategory && activeCategoryId !== "add" && (
+                    <button
+                        onClick={() => setIsAddingTaskMobile(true)}
+                        className="fixed bottom-10 right-6 z-50 w-16 h-16 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform hover:bg-blue-500"
+                    >
+                        <Plus size={32} />
+                    </button>
+                )}
+            </div>
+
+            {/* Mobile Add Task Modal */}
+            {isAddingTaskMobile && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md transition-all animate-in fade-in duration-300" onClick={() => setIsAddingTaskMobile(false)}>
+                    <div className="bg-[#1e293b] w-full max-w-sm rounded-[2.5rem] p-8 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <Plus className="text-blue-400" size={24} />
+                                إضافة مهمة جديدة
+                            </h3>
+                            <button onClick={() => setIsAddingTaskMobile(false)} className="text-slate-400 hover:text-white p-2">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="space-y-6">
+                            <input
+                                autoFocus
+                                type="text"
+                                value={newTaskMobile}
+                                onChange={(e) => setNewTaskMobile(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && handleAddTaskMobile()}
+                                placeholder="ماذا تريد أن تنجز؟"
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-lg"
+                            />
+                            <button
+                                onClick={handleAddTaskMobile}
+                                disabled={!newTaskMobile.trim()}
+                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 py-4 rounded-2xl font-bold text-white transition-all shadow-lg active:scale-95"
+                            >
+                                إضافة المهمة
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             <style jsx global>{`
@@ -556,7 +619,7 @@ function CategoryCard({
     };
 
     return (
-        <section className={`bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-xl flex flex-col h-fit ${isDeleting ? accent.border : ""}`}>
+        <section className={`${hideTitle ? 'flex flex-col h-fit py-4' : 'bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-xl flex flex-col h-fit'} ${isDeleting ? accent.border : ""}`}>
             {/* Top Action Bar */}
             <div className="flex items-center justify-between gap-2 mb-6 bg-white/5 p-2 rounded-2xl border border-white/5 overflow-hidden">
                 <div className="flex gap-1 flex-1">
@@ -589,18 +652,18 @@ function CategoryCard({
                         <Trash2 size={18} />
                     </button>
                 ) : (
-                    <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200 flex-1">
                         <button
                             onClick={onConfirmDelete}
-                            className="bg-red-500/20 hover:bg-red-500/40 border border-red-500/50 text-red-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                            className="bg-red-500/20 hover:bg-red-500/40 border border-red-500/50 text-red-200 py-2 rounded-xl text-[10px] font-bold transition-all flex-1 text-center truncate"
                         >
                             تأكيد الحذف
                         </button>
                         <button
                             onClick={onCancelDelete}
-                            className="bg-white/10 hover:bg-white/20 p-1.5 rounded-lg transition-all"
+                            className="bg-white/10 hover:bg-white/20 py-2 rounded-xl text-slate-400 font-bold transition-all flex-1 text-center text-[10px]"
                         >
-                            <X size={16} />
+                            إلغاء
                         </button>
                     </div>
                 )}
@@ -675,26 +738,28 @@ function CategoryCard({
                 </div>
             )}
 
-            {/* Add task input */}
-            <div className="flex gap-2 mb-6">
-                <input
-                    type="text"
-                    value={newTask}
-                    onChange={(e) => setNewTask(e.target.value)}
-                    placeholder="أضف مهمة جديدة..."
-                    className={`flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 ${accent.ring} transition-all`}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleAddTask(); }}
-                />
-                <button
-                    onClick={handleAddTask}
-                    className={`${accent.btn} px-6 py-3 rounded-xl font-bold transition-all shadow-lg active:scale-95`}
-                >
-                    +
-                </button>
-            </div>
+            {/* Add task input (Hidden on Mobile) */}
+            {!hideTitle && (
+                <div className="flex gap-2 mb-6">
+                    <input
+                        type="text"
+                        value={newTask}
+                        onChange={(e) => setNewTask(e.target.value)}
+                        placeholder="أضف مهمة جديدة..."
+                        className={`flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 ${accent.ring} transition-all`}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleAddTask(); }}
+                    />
+                    <button
+                        onClick={handleAddTask}
+                        className={`${accent.btn} w-12 h-12 rounded-xl font-bold transition-all shadow-lg active:scale-95 flex items-center justify-center shrink-0`}
+                    >
+                        <Plus size={20} />
+                    </button>
+                </div>
+            )}
 
             {/* Task list */}
-            <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar" dir="rtl">
+            <div className={`space-y-6 ${hideTitle ? '' : 'max-h-[600px] overflow-y-auto pr-2 custom-scrollbar'}`} dir="rtl">
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTaskDragEnd}>
                     <SortableContext items={activeTasks.map((t) => t.id!)} strategy={verticalListSortingStrategy}>
                         <div className="space-y-3">
