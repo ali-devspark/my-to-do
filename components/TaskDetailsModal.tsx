@@ -129,13 +129,13 @@ export default function TaskDetailsModal({ task, onClose }: TaskDetailsModalProp
 
     return (
         <div 
-            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm transition-opacity"
+            className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm transition-opacity"
             onClick={(e) => {
                 if (e.target === e.currentTarget) onClose();
             }}
         >
             <div 
-                className="w-full sm:w-full sm:max-w-xl bg-slate-900 border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-[100%] sm:slide-in-from-bottom-[50%] sm:zoom-in-95 duration-300"
+                className="w-full max-w-xl bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-300"
                 dir="rtl"
             >
                 {/* Header */}

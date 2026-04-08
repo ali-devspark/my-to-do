@@ -55,6 +55,11 @@ export default function Home() {
     const [isAddingCategory, setIsAddingCategory] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState("");
     const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
+    const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+    const [tempTitle, setTempTitle] = useState("");
+    const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
     const sensors = useSensors(
         useSensor(MouseSensor),
@@ -78,7 +83,12 @@ export default function Home() {
     useEffect(() => {
         if (user) {
             categoryService.initDefaultCategory(user.uid);
-            const unsub = categoryService.subscribeToCategories(user.uid, setCategories);
+            const unsub = categoryService.subscribeToCategories(user.uid, (cats) => {
+                setCategories(cats);
+                if (cats.length > 0) {
+                    setActiveCategoryId(prev => prev || cats[0].id!);
+                }
+            });
             return () => unsub();
         }
     }, [user]);
@@ -134,10 +144,104 @@ export default function Home() {
     }
 
     return (
-        <>
+        <div className="max-w-7xl mx-auto px-4 pb-20 sm:pb-0">
+            {/* Mobile Tab Navigation */}
+            <div className="md:hidden flex overflow-x-auto no-scrollbar gap-2 mb-6 py-2 -mx-4 px-4 sticky top-0 z-20 bg-[#0f172a]/80 backdrop-blur-md border-b border-white/10">
+                {categories.map((category, index) => {
+                    const isEditing = editingCategoryId === category.id;
+
+                    const handleStart = () => {
+                        const timer = setTimeout(() => {
+                            setEditingCategoryId(category.id!);
+                            setTempTitle(category.name);
+                        }, 600);
+                        setLongPressTimer(timer);
+                    };
+
+                    const handleEnd = () => {
+                        if (longPressTimer) clearTimeout(longPressTimer);
+                    };
+
+                    const saveTitle = async () => {
+                        if (tempTitle.trim() && tempTitle !== category.name) {
+                            try {
+                                await categoryService.updateCategory(category.id!, { name: tempTitle.trim() });
+                            } catch (err) {
+                                console.error("Failed to update category name:", err);
+                            }
+                        }
+                        setEditingCategoryId(null);
+                    };
+
+                    return (
+                        <div key={category.id!} className="relative shrink-0">
+                            {isEditing ? (
+                                <div className="flex items-center gap-1">
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        value={tempTitle}
+                                        onChange={(e) => setTempTitle(e.target.value)}
+                                        onBlur={() => {
+                                            // Delay blur to allow button click to register
+                                            setTimeout(() => setEditingCategoryId(null), 200);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") saveTitle();
+                                            if (e.key === "Escape") setEditingCategoryId(null);
+                                        }}
+                                        className="px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-28"
+                                    />
+                                    <button
+                                        onMouseDown={(e) => { 
+                                            e.preventDefault(); // Prevent blur before save
+                                            saveTitle(); 
+                                        }}
+                                        className="p-2 bg-emerald-500 text-white rounded-xl shadow-lg active:scale-90 transition-transform shrink-0"
+                                    >
+                                        <Check size={16} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        setActiveCategoryId(category.id!);
+                                        setIsAddingCategory(false);
+                                    }}
+                                    onPointerDown={handleStart}
+                                    onPointerUp={handleEnd}
+                                    onPointerLeave={handleEnd}
+                                    className={`px-4 py-2 rounded-xl whitespace-nowrap font-bold transition-all text-sm flex items-center gap-2 ${
+                                        activeCategoryId === category.id 
+                                            ? `${ACCENT_COLORS[index % ACCENT_COLORS.length].bg} text-white shadow-lg` 
+                                            : "bg-white/5 text-slate-400 hover:bg-white/10"
+                                    }`}
+                                >
+                                    {category.name}
+                                </button>
+                            )}
+                        </div>
+                    );
+                })}
+                <button
+                    onClick={() => {
+                        setIsAddingCategory(true);
+                        setActiveCategoryId("add");
+                    }}
+                    className={`px-4 py-2 rounded-xl whitespace-nowrap font-bold transition-all text-sm flex items-center gap-2 ${
+                        isAddingCategory || activeCategoryId === "add"
+                            ? "bg-emerald-500 text-white shadow-lg"
+                            : "bg-white/5 text-slate-400 hover:bg-white/10"
+                    }`}
+                >
+                    <Plus size={16} />
+                    إضافة تصنيف
+                </button>
+            </div>
+
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
                 <SortableContext items={categories.map((c) => c.id!)} strategy={horizontalListSortingStrategy}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {categories.map((category, index) => (
                             <SortableCategoryCard
                                 key={category.id!}
@@ -148,72 +252,98 @@ export default function Home() {
                                 onRequestDelete={() => setDeletingCategoryId(category.id!)}
                                 onCancelDelete={() => setDeletingCategoryId(null)}
                                 onConfirmDelete={() => handleDeleteCategory(category.id!)}
+                                onSelectTask={setSelectedTask}
                             />
                         ))}
-
-                        {/* Add Category Card */}
-                        <div className="bg-white/5 backdrop-blur-md border-2 border-dashed border-white/10 rounded-3xl p-6 flex items-center justify-center min-h-[200px] hover:border-white/20 transition-all">
-                            {isAddingCategory ? (
-                                <div className="w-full space-y-4">
-                                    <input
-                                        autoFocus
-                                        type="text"
-                                        value={newCategoryName}
-                                        onChange={(e) => setNewCategoryName(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") handleAddCategory();
-                                            if (e.key === "Escape") setIsAddingCategory(false);
-                                        }}
-                                        placeholder="اسم التصنيف..."
-                                        className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-center text-lg"
-                                    />
-                                    <div className="flex gap-2 justify-center">
-                                        <button
-                                            onClick={handleAddCategory}
-                                            className="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded-xl font-bold transition-all active:scale-95"
-                                        >
-                                            إضافة
-                                        </button>
-                                        <button
-                                            onClick={() => { setIsAddingCategory(false); setNewCategoryName(""); }}
-                                            className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all"
-                                        >
-                                            <X size={20} />
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <button
-                                    onClick={() => setIsAddingCategory(true)}
-                                    className="flex flex-col items-center gap-3 text-slate-400 hover:text-white transition-all group"
-                                >
-                                    <div className="w-16 h-16 rounded-2xl bg-white/5 group-hover:bg-white/10 flex items-center justify-center transition-all border border-white/10 group-hover:border-white/20">
-                                        <Plus size={28} />
-                                    </div>
-                                    <span className="text-sm font-medium">إضافة تصنيف</span>
-                                </button>
-                            )}
-                        </div>
                     </div>
                 </SortableContext>
             </DndContext>
 
+            {/* Mobile View Active Category */}
+            <div className="md:hidden">
+                {isAddingCategory || activeCategoryId === "add" ? (
+                    <div className="bg-white/5 backdrop-blur-md border-2 border-emerald-500/30 rounded-3xl p-6 animate-in slide-in-from-bottom-4 duration-300">
+                        <div className="w-full space-y-4">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <span className="bg-emerald-500 p-2 rounded-xl text-white">
+                                    <Plus size={20} />
+                                </span>
+                                إضافة تصنيف جديد
+                            </h3>
+                            <input
+                                autoFocus
+                                type="text"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleAddCategory();
+                                    if (e.key === "Escape") {
+                                        setIsAddingCategory(false);
+                                        setActiveCategoryId(categories[0]?.id || null);
+                                    }
+                                }}
+                                placeholder="مثلاً: المشتريات، العمل، النادي..."
+                                className="w-full bg-white/10 border border-white/20 rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-lg"
+                            />
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleAddCategory}
+                                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-4 rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-emerald-500/20 text-white"
+                                >
+                                    إنشاء التصنيف
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setIsAddingCategory(false);
+                                        setNewCategoryName("");
+                                        setActiveCategoryId(categories[0]?.id || null);
+                                    }}
+                                    className="bg-white/10 hover:bg-white/20 px-6 py-4 rounded-2xl transition-all"
+                                >
+                                    <X size={24} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    categories.map((category, index) => (
+                        activeCategoryId === category.id && (
+                            <div key={category.id!} className="animate-in slide-in-from-right-4 duration-300">
+                                <CategoryCard
+                                    category={category}
+                                    accentIndex={index % ACCENT_COLORS.length}
+                                    userId={user.uid}
+                                    isDeleting={deletingCategoryId === category.id}
+                                    onRequestDelete={() => setDeletingCategoryId(category.id!)}
+                                    onCancelDelete={() => setDeletingCategoryId(null)}
+                                    onConfirmDelete={() => handleDeleteCategory(category.id!)}
+                                    onSelectTask={setSelectedTask}
+                                    dragHandleProps={{}}
+                                    hideTitle={true}
+                                />
+                            </div>
+                        )
+                    ))
+                )}
+            </div>
+
+            {selectedTask && (
+                <TaskDetailsModal 
+                    task={selectedTask} 
+                    onClose={() => setSelectedTask(null)} 
+                />
+            )}
+
             <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.2);
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
-        </>
+        </div>
     );
 }
 
@@ -227,6 +357,7 @@ interface SortableCategoryCardProps {
     onRequestDelete: () => void;
     onCancelDelete: () => void;
     onConfirmDelete: () => void;
+    onSelectTask: (task: Task) => void;
 }
 
 function SortableCategoryCard({
@@ -237,6 +368,7 @@ function SortableCategoryCard({
     onRequestDelete,
     onCancelDelete,
     onConfirmDelete,
+    onSelectTask,
 }: SortableCategoryCardProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: category.id!,
@@ -260,6 +392,7 @@ function SortableCategoryCard({
                 onRequestDelete={onRequestDelete}
                 onCancelDelete={onCancelDelete}
                 onConfirmDelete={onConfirmDelete}
+                onSelectTask={onSelectTask}
                 dragHandleProps={{ ...attributes, ...listeners }}
             />
         </div>
@@ -276,7 +409,9 @@ interface CategoryCardProps {
     onRequestDelete: () => void;
     onCancelDelete: () => void;
     onConfirmDelete: () => void;
+    onSelectTask: (task: Task) => void;
     dragHandleProps: Record<string, unknown>;
+    hideTitle?: boolean;
 }
 
 function CategoryCard({
@@ -287,7 +422,9 @@ function CategoryCard({
     onRequestDelete,
     onCancelDelete,
     onConfirmDelete,
+    onSelectTask,
     dragHandleProps,
+    hideTitle = false,
 }: CategoryCardProps) {
     const accent = ACCENT_COLORS[accentIndex];
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -297,9 +434,6 @@ function CategoryCard({
     const [showImport, setShowImport] = useState(false);
     const [importText, setImportText] = useState("");
     const [isCopied, setIsCopied] = useState(false);
-    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-
-    const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId) || null, [tasks, selectedTaskId]);
 
     // Sync title when category name changes from external source (e.g. Firestore)
     if (title !== category.name && !isEditingTitle) {
@@ -473,41 +607,43 @@ function CategoryCard({
             </div>
 
             {/* Title Header */}
-            <div className="flex items-center gap-3 mb-6 group/title">
-                {/* Drag handle for category */}
-                <div
-                    {...dragHandleProps}
-                    className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-white p-1 transition-colors"
-                >
-                    <GripHorizontal size={20} />
+            {!hideTitle && (
+                <div className="flex items-center gap-3 mb-6 group/title">
+                    {/* Drag handle for category */}
+                    <div
+                        {...dragHandleProps}
+                        className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-white p-1 transition-colors"
+                    >
+                        <GripHorizontal size={20} />
+                    </div>
+                    <span className={`w-1.5 h-8 ${accent.bg} rounded-full`}></span>
+                    <div className="flex-1 min-w-0">
+                        {isEditingTitle ? (
+                            <div className="flex items-center gap-2 w-full">
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    onBlur={saveTitle}
+                                    onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); }}
+                                    className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-xl font-bold w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        ) : (
+                            <h2 className="text-2xl font-bold flex items-center gap-2 group-hover/title:text-white transition-colors">
+                                <span className="truncate">{title}</span>
+                                <button
+                                    onClick={() => setIsEditingTitle(true)}
+                                    className="opacity-100 md:opacity-0 md:group-hover/title:opacity-100 text-slate-500 hover:text-white transition-all shrink-0"
+                                >
+                                    <Edit2 size={16} />
+                                </button>
+                            </h2>
+                        )}
+                    </div>
                 </div>
-                <span className={`w-1.5 h-8 ${accent.bg} rounded-full`}></span>
-                <div className="flex-1 min-w-0">
-                    {isEditingTitle ? (
-                        <div className="flex items-center gap-2 w-full">
-                            <input
-                                autoFocus
-                                type="text"
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                                onBlur={saveTitle}
-                                onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); }}
-                                className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-xl font-bold w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                    ) : (
-                        <h2 className="text-2xl font-bold flex items-center gap-2 group-hover/title:text-white transition-colors">
-                            <span className="truncate">{title}</span>
-                            <button
-                                onClick={() => setIsEditingTitle(true)}
-                                className="opacity-100 md:opacity-0 md:group-hover/title:opacity-100 text-slate-500 hover:text-white transition-all shrink-0"
-                            >
-                                <Edit2 size={16} />
-                            </button>
-                        </h2>
-                    )}
-                </div>
-            </div>
+            )}
 
             {/* Import Area */}
             {showImport && (
@@ -568,7 +704,7 @@ function CategoryCard({
                                     id={task.id!}
                                     task={task}
                                     onToggle={() => toggleComplete(task)}
-                                    onSelect={() => setSelectedTaskId(task.id!)}
+                                    onSelect={() => onSelectTask(task)}
                                 />
                             ))}
                             {activeTasks.length === 0 && completedTasks.length === 0 && (
@@ -591,20 +727,13 @@ function CategoryCard({
                                     key={task.id!}
                                     task={task}
                                     onToggle={() => toggleComplete(task)}
-                                    onSelect={() => setSelectedTaskId(task.id!)}
+                                    onSelect={() => onSelectTask(task)}
                                 />
                             ))}
                         </div>
                     </div>
                 )}
             </div>
-
-            {selectedTask && (
-                <TaskDetailsModal 
-                    task={selectedTask} 
-                    onClose={() => setSelectedTaskId(null)} 
-                />
-            )}
         </section>
     );
 }

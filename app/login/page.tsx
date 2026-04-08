@@ -63,10 +63,10 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#334155] p-4 text-white" dir="rtl">
-            <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-10 shadow-2xl text-center">
+        <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-[#0f172a] via-[#1e293b] to-[#334155] p-4 text-white" dir="rtl">
+            <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-4xl p-10 shadow-2xl text-center">
                 <div className="mb-8">
-                    <h1 className="text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 mb-4">
+                    <h1 className="text-5xl font-black bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-purple-500 mb-4">
                         MyTO-DO
                     </h1>
                     <p className="text-slate-400 font-medium">سجل دخولك لتبدأ تنظيم يومك</p>
@@ -129,9 +129,9 @@ export default function LoginPage() {
                 </form>
 
                 <div className="relative flex items-center py-5">
-                    <div className="flex-grow border-t border-slate-700"></div>
-                    <span className="flex-shrink-0 mx-4 text-slate-500 text-sm">أو</span>
-                    <div className="flex-grow border-t border-slate-700"></div>
+                    <div className="grow border-t border-slate-700"></div>
+                    <span className="shrink-0 mx-4 text-slate-500 text-sm">أو</span>
+                    <div className="grow border-t border-slate-700"></div>
                 </div>
 
                 <button

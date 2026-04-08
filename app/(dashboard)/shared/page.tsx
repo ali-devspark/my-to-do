@@ -41,6 +41,11 @@ export default function SharedPage() {
     const [joinCode, setJoinCode] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
+    const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+    const [tempTitle, setTempTitle] = useState("");
+    const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
 
     useEffect(() => {
@@ -51,7 +56,12 @@ export default function SharedPage() {
 
     useEffect(() => {
         if (user) {
-            const unsub = categoryService.subscribeToSharedCategories(user.uid, setCategories);
+            const unsub = categoryService.subscribeToSharedCategories(user.uid, (cats) => {
+                setCategories(cats);
+                if (cats.length > 0) {
+                    setActiveCategoryId(prev => prev || cats[0].id!);
+                }
+            });
             return () => unsub();
         }
     }, [user]);
@@ -104,8 +114,104 @@ export default function SharedPage() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="max-w-7xl mx-auto px-4 pb-20 sm:pb-0">
+            {/* Mobile Tab Navigation */}
+            <div className="md:hidden flex overflow-x-auto no-scrollbar gap-2 mb-6 py-2 -mx-4 px-4 sticky top-0 z-20 bg-[#0f172a]/80 backdrop-blur-md border-b border-white/10">
+                {categories.map((category, index) => {
+                    const isEditing = editingCategoryId === category.id;
+
+                    const handleStart = () => {
+                        const timer = setTimeout(() => {
+                            setEditingCategoryId(category.id!);
+                            setTempTitle(category.name);
+                        }, 600);
+                        setLongPressTimer(timer);
+                    };
+
+                    const handleEnd = () => {
+                        if (longPressTimer) clearTimeout(longPressTimer);
+                    };
+
+                    const saveTitle = async () => {
+                        if (tempTitle.trim() && tempTitle !== category.name) {
+                            try {
+                                await categoryService.updateCategory(category.id!, { name: tempTitle.trim() });
+                            } catch (err) {
+                                console.error("Failed to update category name:", err);
+                            }
+                        }
+                        setEditingCategoryId(null);
+                    };
+
+                    return (
+                        <div key={category.id!} className="relative shrink-0">
+                            {isEditing ? (
+                                <div className="flex items-center gap-1">
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        value={tempTitle}
+                                        onChange={(e) => setTempTitle(e.target.value)}
+                                        onBlur={() => {
+                                            // Delay blur to allow button click to register
+                                            setTimeout(() => setEditingCategoryId(null), 200);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") saveTitle();
+                                            if (e.key === "Escape") setEditingCategoryId(null);
+                                        }}
+                                        className="px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-28"
+                                    />
+                                    <button
+                                        onMouseDown={(e) => { 
+                                            e.preventDefault(); // Prevent blur before save
+                                            saveTitle(); 
+                                        }}
+                                        className="p-2 bg-emerald-500 text-white rounded-xl shadow-lg active:scale-90 transition-transform shrink-0"
+                                    >
+                                        <Check size={16} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        setActiveCategoryId(category.id!);
+                                        setIsAddingCategory(false);
+                                        setIsJoining(false);
+                                    }}
+                                    onPointerDown={handleStart}
+                                    onPointerUp={handleEnd}
+                                    onPointerLeave={handleEnd}
+                                    className={`px-4 py-2 rounded-xl whitespace-nowrap font-bold transition-all text-sm flex items-center gap-2 ${
+                                        activeCategoryId === category.id 
+                                            ? `${ACCENT_COLORS[index % ACCENT_COLORS.length].bg} text-white shadow-lg` 
+                                            : "bg-white/5 text-slate-400 hover:bg-white/10"
+                                    }`}
+                                >
+                                    {category.name}
+                                </button>
+                            )}
+                        </div>
+                    );
+                })}
+                <button
+                    onClick={() => {
+                        setIsAddingCategory(false);
+                        setIsJoining(false);
+                        setActiveCategoryId("actions");
+                    }}
+                    className={`px-4 py-2 rounded-xl whitespace-nowrap font-bold transition-all text-sm flex items-center gap-2 ${
+                        activeCategoryId === "actions"
+                            ? "bg-emerald-500 text-white shadow-lg"
+                            : "bg-white/5 text-slate-400 hover:bg-white/10"
+                    }`}
+                >
+                    <Plus size={16} />
+                    خيارات إضافية
+                </button>
+            </div>
+
+            <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {categories.map((category, index) => (
                     <CategoryCard
                         key={category.id!}
@@ -116,96 +222,108 @@ export default function SharedPage() {
                         onRequestDelete={() => setDeletingCategoryId(category.id!)}
                         onCancelDelete={() => setDeletingCategoryId(null)}
                         onConfirmDelete={() => handleDeleteCategory(category.id!)}
+                        onSelectTask={setSelectedTask}
                     />
                 ))}
 
-                {/* Actions Card: Join or Create */}
-                <div className="bg-white/5 backdrop-blur-md border-2 border-dashed border-white/10 rounded-3xl p-6 flex flex-col items-center justify-center min-h-[220px] gap-6">
-                    {!isAddingCategory && !isJoining ? (
-                        <>
-                            <button
-                                onClick={() => setIsAddingCategory(true)}
-                                className="w-full flex items-center gap-4 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 p-4 rounded-2xl transition-all group"
-                            >
-                                <div className="bg-emerald-500 p-2 rounded-xl text-white group-hover:scale-110 transition-transform">
-                                    <Plus size={20} />
-                                </div>
-                                <span className="font-bold">إنشاء تصنيف مشترك جديد</span>
-                            </button>
-                            <button
-                                onClick={() => setIsJoining(true)}
-                                className="w-full flex items-center gap-4 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 p-4 rounded-2xl transition-all group"
-                            >
-                                <div className="bg-blue-500 p-2 rounded-xl text-white group-hover:scale-110 transition-transform">
-                                    <LinkIcon size={20} />
-                                </div>
-                                <span className="font-bold">انضمام عبر رمز</span>
-                            </button>
-                        </>
-                    ) : isAddingCategory ? (
-                        <div className="w-full space-y-4">
-                            <h3 className="text-center font-bold text-lg">إنشاء تصنيف مشترك</h3>
-                            <input
-                                autoFocus
-                                type="text"
-                                value={newCategoryName}
-                                onChange={(e) => setNewCategoryName(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleAddCategory();
-                                    if (e.key === "Escape") setIsAddingCategory(false);
-                                }}
-                                placeholder="اسم التصنيف..."
-                                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-center"
-                            />
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handleAddCategory}
-                                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-2 rounded-xl font-bold transition-all"
-                                >
-                                    إنشاء
-                                </button>
-                                <button
-                                    onClick={() => { setIsAddingCategory(false); setNewCategoryName(""); }}
-                                    className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all"
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="w-full space-y-4">
-                            <h3 className="text-center font-bold text-lg">انضمام لتصنيف</h3>
-                            <input
-                                autoFocus
-                                type="text"
-                                value={joinCode}
-                                onChange={(e) => setJoinCode(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleJoinCategory();
-                                    if (e.key === "Escape") { setIsJoining(false); setError(null); }
-                                }}
-                                placeholder="أدخل الرمز (مثلاً: A1B2C3D4)..."
-                                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-center uppercase"
-                            />
-                            {error && <p className="text-red-400 text-xs text-center">{error}</p>}
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handleJoinCategory}
-                                    className="flex-1 bg-blue-600 hover:bg-blue-500 py-2 rounded-xl font-bold transition-all"
-                                >
-                                    انضمام
-                                </button>
-                                <button
-                                    onClick={() => { setIsJoining(false); setJoinCode(""); setError(null); }}
-                                    className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all"
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
             </div>
+
+            {/* Mobile View Active Category */}
+            <div className="md:hidden">
+                {activeCategoryId === "actions" ? (
+                    <div className="bg-white/5 backdrop-blur-md border-2 border-dashed border-white/10 rounded-3xl p-6 flex flex-col items-center justify-center min-h-[220px] gap-6 animate-in slide-in-from-bottom-4 duration-300">
+                        {!isAddingCategory && !isJoining ? (
+                            <>
+                                <button
+                                    onClick={() => setIsAddingCategory(true)}
+                                    className="w-full flex items-center gap-4 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 p-4 rounded-2xl transition-all group"
+                                >
+                                    <div className="bg-emerald-500 p-2 rounded-xl text-white group-hover:scale-110 transition-transform">
+                                        <Plus size={20} />
+                                    </div>
+                                    <span className="font-bold text-slate-100">إنشاء تصنيف مشترك جديد</span>
+                                </button>
+                                <button
+                                    onClick={() => setIsJoining(true)}
+                                    className="w-full flex items-center gap-4 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 p-4 rounded-2xl transition-all group"
+                                >
+                                    <div className="bg-blue-500 p-2 rounded-xl text-white group-hover:scale-110 transition-transform">
+                                        <LinkIcon size={20} />
+                                    </div>
+                                    <span className="font-bold text-slate-100">انضمام عبر رمز</span>
+                                </button>
+                                <button
+                                    onClick={() => setActiveCategoryId(categories[0]?.id || null)}
+                                    className="text-slate-500 hover:text-white text-sm"
+                                >
+                                    العودة للتصنيفات
+                                </button>
+                            </>
+                        ) : isAddingCategory ? (
+                            <div className="w-full space-y-4">
+                                <h3 className="text-center font-bold text-lg">إنشاء تصنيف مشترك</h3>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={newCategoryName}
+                                    onChange={(e) => setNewCategoryName(e.target.value)}
+                                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-center"
+                                />
+                                <div className="flex gap-2">
+                                    <button onClick={handleAddCategory} className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-2 rounded-xl font-bold">إنشاء</button>
+                                    <button onClick={() => setIsAddingCategory(false)} className="bg-white/10 px-4 py-2 rounded-xl"><X /></button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="w-full space-y-4">
+                                <h3 className="text-center font-bold text-lg">انضمام لتصنيف</h3>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={joinCode}
+                                    onChange={(e) => setJoinCode(e.target.value)}
+                                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center uppercase"
+                                />
+                                {error && <p className="text-red-400 text-xs text-center">{error}</p>}
+                                <div className="flex gap-2">
+                                    <button onClick={handleJoinCategory} className="flex-1 bg-blue-600 hover:bg-blue-500 py-2 rounded-xl font-bold">انضمام</button>
+                                    <button onClick={() => setIsJoining(false)} className="bg-white/10 px-4 py-2 rounded-xl"><X /></button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    categories.map((category, index) => (
+                        activeCategoryId === category.id && (
+                            <div key={category.id!} className="animate-in slide-in-from-right-4 duration-300">
+                                <CategoryCard
+                                    category={category}
+                                    accentIndex={index % ACCENT_COLORS.length}
+                                    userId={user.uid}
+                                    isDeleting={deletingCategoryId === category.id}
+                                    onRequestDelete={() => setDeletingCategoryId(category.id!)}
+                                    onCancelDelete={() => setDeletingCategoryId(null)}
+                                    onConfirmDelete={() => handleDeleteCategory(category.id!)}
+                                    onSelectTask={setSelectedTask}
+                                    hideTitle={true}
+                                />
+                            </div>
+                        )
+                    ))
+                )}
+            </div>
+
+            {selectedTask && (
+                <TaskDetailsModal 
+                    task={selectedTask} 
+                    onClose={() => setSelectedTask(null)} 
+                />
+            )}
+
+            <style jsx global>{`
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
         </div>
     );
 }
@@ -220,6 +338,8 @@ interface CategoryCardProps {
     onRequestDelete: () => void;
     onCancelDelete: () => void;
     onConfirmDelete: () => void;
+    onSelectTask: (task: Task) => void;
+    hideTitle?: boolean;
 }
 
 function CategoryCard({
@@ -230,6 +350,8 @@ function CategoryCard({
     onRequestDelete,
     onCancelDelete,
     onConfirmDelete,
+    onSelectTask,
+    hideTitle = false,
 }: CategoryCardProps) {
     const accent = ACCENT_COLORS[accentIndex];
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -240,9 +362,6 @@ function CategoryCard({
     const [showMembers, setShowMembers] = useState(false);
     const [memberProfiles, setMemberProfiles] = useState<UserProfile[]>([]);
     const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
-    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-
-    const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId) || null, [tasks, selectedTaskId]);
 
     useEffect(() => {
         const unsub = taskService.subscribeToTasks(category.id!, setTasks);
@@ -417,37 +536,39 @@ function CategoryCard({
             </div>
 
             {/* Title Header */}
-            <div className="flex items-center gap-3 mb-6 group/title">
-                <span className={`w-1.5 h-8 ${accent.bg} rounded-full`}></span>
-                <div className="flex-1 min-w-0">
-                    {isEditingTitle ? (
-                        <input
-                            autoFocus
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            onBlur={saveTitle}
-                            onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); }}
-                            className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-xl font-bold w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                    ) : (
-                        <>
-                            <h2 className="text-2xl font-bold flex items-center gap-2 group-hover/title:text-white transition-colors">
-                                <span className="truncate">{title}</span>
-                                <button
-                                    onClick={() => setIsEditingTitle(true)}
-                                    className="opacity-0 group-hover/title:opacity-100 text-slate-500 hover:text-white transition-all shrink-0"
-                                >
-                                    <Edit2 size={16} />
-                                </button>
-                            </h2>
-                            <p className="text-[10px] text-slate-500">
-                                بواسطة: {category.userId === userId ? "أنت" : "زميل"}
-                            </p>
-                        </>
-                    )}
+            {!hideTitle && (
+                <div className="flex items-center gap-3 mb-6 group/title">
+                    <span className={`w-1.5 h-8 ${accent.bg} rounded-full`}></span>
+                    <div className="flex-1 min-w-0">
+                        {isEditingTitle ? (
+                            <input
+                                autoFocus
+                                type="text"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                onBlur={saveTitle}
+                                onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); }}
+                                className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-xl font-bold w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                        ) : (
+                            <>
+                                <h2 className="text-2xl font-bold flex items-center gap-2 group-hover/title:text-white transition-colors">
+                                    <span className="truncate">{title}</span>
+                                    <button
+                                        onClick={() => setIsEditingTitle(true)}
+                                        className="opacity-0 group-hover/title:opacity-100 text-slate-500 hover:text-white transition-all shrink-0"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
+                                </h2>
+                                <p className="text-[10px] text-slate-500">
+                                    بواسطة: {category.userId === userId ? "أنت" : "زميل"}
+                                </p>
+                            </>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Add task input */}
             <div className="flex gap-2 mb-6">
@@ -475,7 +596,7 @@ function CategoryCard({
                             key={task.id!}
                             task={task}
                             onToggle={() => toggleComplete(task)}
-                            onSelect={() => setSelectedTaskId(task.id!)}
+                            onSelect={() => onSelectTask(task)}
                         />
                     ))}
                     {activeTasks.length === 0 && completedTasks.length === 0 && (
@@ -495,20 +616,13 @@ function CategoryCard({
                                     key={task.id!}
                                     task={task}
                                     onToggle={() => toggleComplete(task)}
-                                    onSelect={() => setSelectedTaskId(task.id!)}
+                                    onSelect={() => onSelectTask(task)}
                                 />
                             ))}
                         </div>
                     </div>
                 )}
             </div>
-
-            {selectedTask && (
-                <TaskDetailsModal 
-                    task={selectedTask} 
-                    onClose={() => setSelectedTaskId(null)} 
-                />
-            )}
         </section>
     );
 }

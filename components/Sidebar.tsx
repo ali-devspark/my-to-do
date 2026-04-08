@@ -83,15 +83,15 @@ export function Sidebar() {
         <>
             {/* Mobile Header */}
             <div className="lg:hidden flex items-center justify-between p-4 bg-[#0f172a] border-b border-white/10 sticky top-0 z-40">
-                <h1 className="text-xl font-extrabold bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-purple-500">
-                    MyTO-DO
-                </h1>
                 <button
                     onClick={toggleSidebar}
                     className="p-2 text-slate-400 hover:text-white transition-colors"
                 >
                     <Menu size={24} />
                 </button>
+                <h1 className="text-xl font-extrabold bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-purple-500">
+                    MyTO-DO
+                </h1>
             </div>
 
             {/* Desktop Sidebar */}
