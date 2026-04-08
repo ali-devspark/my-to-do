@@ -271,6 +271,50 @@ export default function Home() {
                                 onSelectTask={setSelectedTask}
                             />
                         ))}
+
+                        {/* Desktop Add Category Card */}
+                        <div className="bg-white/5 backdrop-blur-md border-2 border-dashed border-white/10 rounded-3xl p-6 flex flex-col items-center justify-center min-h-[300px] gap-6 hover:border-emerald-500/30 transition-all group">
+                            {!isAddingCategory ? (
+                                <button
+                                    onClick={() => setIsAddingCategory(true)}
+                                    className="flex flex-col items-center gap-4 text-slate-400 group-hover:text-white transition-all"
+                                >
+                                    <div className="bg-white/5 p-4 rounded-2xl group-hover:bg-emerald-500 group-hover:scale-110 transition-all shadow-xl">
+                                        <Plus size={32} />
+                                    </div>
+                                    <span className="font-bold text-lg">إضافة تصنيف جديد</span>
+                                </button>
+                            ) : (
+                                <div className="w-full space-y-4 animate-in zoom-in-95 duration-200">
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        value={newCategoryName}
+                                        onChange={(e) => setNewCategoryName(e.target.value)}
+                                        placeholder="اسم التصنيف..."
+                                        className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-center"
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") handleAddCategory();
+                                            if (e.key === "Escape") setIsAddingCategory(false);
+                                        }}
+                                    />
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleAddCategory}
+                                            className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-2 rounded-xl font-bold transition-all"
+                                        >
+                                            إضافة
+                                        </button>
+                                        <button
+                                            onClick={() => setIsAddingCategory(false)}
+                                            className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all"
+                                        >
+                                            <X />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </SortableContext>
             </DndContext>

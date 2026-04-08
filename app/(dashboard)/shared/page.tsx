@@ -239,6 +239,65 @@ export default function SharedPage() {
                     />
                 ))}
 
+                {/* Desktop Shared Actions Card */}
+                <div className="bg-white/5 backdrop-blur-md border-2 border-dashed border-white/10 rounded-3xl p-6 flex flex-col items-center justify-center min-h-[300px] gap-6 animate-in zoom-in-95 duration-300">
+                    {!isAddingCategory && !isJoining ? (
+                        <>
+                            <button
+                                onClick={() => setIsAddingCategory(true)}
+                                className="w-full flex items-center gap-4 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 p-4 rounded-2xl transition-all group"
+                            >
+                                <div className="bg-emerald-500 p-2 rounded-xl text-white group-hover:scale-110 transition-transform">
+                                    <Plus size={24} />
+                                </div>
+                                <span className="font-bold text-slate-100">إنشاء تصنيف مشترك جديد</span>
+                            </button>
+                            <button
+                                onClick={() => setIsJoining(true)}
+                                className="w-full flex items-center gap-4 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 p-4 rounded-2xl transition-all group"
+                            >
+                                <div className="bg-blue-500 p-2 rounded-xl text-white group-hover:scale-110 transition-transform">
+                                    <LinkIcon size={24} />
+                                </div>
+                                <span className="font-bold text-slate-100">انضمام عبر رمز</span>
+                            </button>
+                        </>
+                    ) : isAddingCategory ? (
+                        <div className="w-full space-y-4">
+                            <h3 className="text-center font-bold text-lg">إنشاء تصنيف مشترك</h3>
+                            <input
+                                autoFocus
+                                type="text"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-center"
+                                onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+                            />
+                            <div className="flex gap-2">
+                                <button onClick={handleAddCategory} className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-2 rounded-xl font-bold transition-all">إنشاء</button>
+                                <button onClick={() => setIsAddingCategory(false)} className="bg-white/10 px-4 py-2 rounded-xl transition-all"><X /></button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="w-full space-y-4">
+                            <h3 className="text-center font-bold text-lg">انضمام لتصنيف</h3>
+                            <input
+                                autoFocus
+                                type="text"
+                                value={joinCode}
+                                onChange={(e) => setJoinCode(e.target.value)}
+                                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center uppercase"
+                                onKeyDown={(e) => e.key === "Enter" && handleJoinCategory()}
+                            />
+                            {error && <p className="text-red-400 text-xs text-center">{error}</p>}
+                            <div className="flex gap-2">
+                                <button onClick={handleJoinCategory} className="flex-1 bg-blue-600 hover:bg-blue-500 py-2 rounded-xl font-bold transition-all">انضمام</button>
+                                <button onClick={() => setIsJoining(false)} className="bg-white/10 px-4 py-2 rounded-xl transition-all"><X /></button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
             </div>
 
             {/* Mobile View Active Category */}
