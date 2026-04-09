@@ -209,9 +209,9 @@ export default function Home() {
                                         className="px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-28"
                                     />
                                     <button
-                                        onMouseDown={(e) => { 
+                                        onMouseDown={(e) => {
                                             e.preventDefault(); // Prevent blur before save
-                                            saveTitle(); 
+                                            saveTitle();
                                         }}
                                         className="p-2 bg-emerald-500 text-white rounded-xl shadow-lg active:scale-90 transition-transform shrink-0"
                                     >
@@ -227,11 +227,10 @@ export default function Home() {
                                     onPointerDown={handleStart}
                                     onPointerUp={handleEnd}
                                     onPointerLeave={handleEnd}
-                                    className={`px-4 py-2 rounded-xl whitespace-nowrap font-bold transition-all text-sm flex items-center gap-2 ${
-                                        activeCategoryId === category.id 
-                                            ? `${ACCENT_COLORS[index % ACCENT_COLORS.length].bg} text-white shadow-lg` 
+                                    className={`px-4 py-2 rounded-xl whitespace-nowrap font-bold transition-all text-sm flex items-center gap-2 ${activeCategoryId === category.id
+                                            ? `${ACCENT_COLORS[index % ACCENT_COLORS.length].bg} text-white shadow-lg`
                                             : "bg-white/5 text-slate-400 hover:bg-white/10"
-                                    }`}
+                                        }`}
                                 >
                                     {category.name}
                                 </button>
@@ -244,11 +243,10 @@ export default function Home() {
                         setIsAddingCategory(true);
                         setActiveCategoryId("add");
                     }}
-                    className={`px-4 py-2 rounded-xl whitespace-nowrap font-bold transition-all text-sm flex items-center gap-2 ${
-                        isAddingCategory || activeCategoryId === "add"
+                    className={`px-4 py-2 rounded-xl whitespace-nowrap font-bold transition-all text-sm flex items-center gap-2 ${isAddingCategory || activeCategoryId === "add"
                             ? "bg-emerald-500 text-white shadow-lg"
                             : "bg-white/5 text-slate-400 hover:bg-white/10"
-                    }`}
+                        }`}
                 >
                     <Plus size={16} />
                     إضافة تصنيف
@@ -257,7 +255,7 @@ export default function Home() {
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
                 <SortableContext items={categories.map((c) => c.id!)} strategy={horizontalListSortingStrategy}>
-                    <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2100px]:grid-cols-6 gap-6">
+                    <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
                         {categories.map((category, index) => (
                             <SortableCategoryCard
                                 key={category.id!}
@@ -388,9 +386,9 @@ export default function Home() {
             </div>
 
             {selectedTask && (
-                <TaskDetailsModal 
-                    task={selectedTask} 
-                    onClose={() => setSelectedTask(null)} 
+                <TaskDetailsModal
+                    task={selectedTask}
+                    onClose={() => setSelectedTask(null)}
                 />
             )}
 
@@ -441,15 +439,6 @@ export default function Home() {
                 </div>
             )}
 
-            <style jsx global>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
         </div>
     );
 }
@@ -701,7 +690,7 @@ function CategoryCard({
                             onClick={onConfirmDelete}
                             className="bg-red-500/20 hover:bg-red-500/40 border border-red-500/50 text-red-200 py-2 rounded-xl text-[10px] font-bold transition-all flex-1 text-center truncate"
                         >
-                            تأكيد الحذف
+                            حذف
                         </button>
                         <button
                             onClick={onCancelDelete}
@@ -882,7 +871,7 @@ function SortableTaskItem({ id, task, onToggle, onSelect }: SortableTaskItemProp
                 >
                     <Circle className="w-4 h-4 text-transparent" />
                 </button>
-                <span 
+                <span
                     className="text-lg text-slate-100 flex-1 wrap-break-word cursor-pointer hover:underline decoration-white/30 underline-offset-4"
                     onClick={onSelect}
                 >
@@ -906,7 +895,7 @@ function TaskItem({ task, onToggle, onSelect }: { task: Task; onToggle: () => vo
                 >
                     <CheckCircle2 size={16} className="text-white" />
                 </button>
-                <span 
+                <span
                     className="text-lg line-through text-slate-400 flex-1 wrap-break-word cursor-pointer hover:text-slate-300"
                     onClick={onSelect}
                 >

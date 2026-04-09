@@ -64,7 +64,7 @@ export function Sidebar() {
             </nav>
 
             <div className="p-4 text-center text-slate-400 text-xs">
-                v 1.5.5
+                v 1.5.7
             </div>
 
             <div className="p-4 border-t border-white/10">

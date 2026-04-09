@@ -59,9 +59,15 @@ export default function SharedPage() {
     useEffect(() => {
         if (user) {
             const unsub = categoryService.subscribeToSharedCategories(user.uid, (cats) => {
-                setCategories(cats);
+                // Sort categories by creation time to ensure newest appear last
+                const sortedCats = [...cats].sort((a, b) => {
+                    const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+                    const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+                    return timeA - timeB;
+                });
+                setCategories(sortedCats);
                 if (cats.length > 0) {
-                    setActiveCategoryId(prev => prev || cats[0].id!);
+                    setActiveCategoryId(prev => prev || sortedCats[0].id!);
                 }
             });
             return () => unsub();
@@ -224,7 +230,7 @@ export default function SharedPage() {
                 </button>
             </div>
 
-            <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2100px]:grid-cols-6 gap-6">
+            <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
                 {categories.map((category, index) => (
                     <CategoryCard
                         key={category.id!}
@@ -439,10 +445,6 @@ export default function SharedPage() {
                 </div>
             )}
 
-            <style jsx global>{`
-                .no-scrollbar::-webkit-scrollbar { display: none; }
-                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-            `}</style>
         </div>
     );
 }
@@ -573,13 +575,8 @@ function CategoryCard({
                                 const profile = memberProfiles.find(p => p.uid === memberId);
                                 return (
                                     <div key={memberId} className="bg-white/5 p-3 rounded-xl flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold overflow-hidden">
-                                            {profile?.photoURL ? (
-                                                /* eslint-disable-next-line @next/next/no-img-element */
-                                                <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                (profile?.name || "م").substring(0, 1).toUpperCase()
-                                            )}
+                                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-md font-bold overflow-hidden">
+                                            {(profile?.name || "م").substring(0, 1).toUpperCase()}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium truncate">
@@ -642,7 +639,7 @@ function CategoryCard({
                             onClick={onConfirmDelete}
                             className="bg-red-500/20 hover:bg-red-500/40 border border-red-500/50 text-red-200 py-2 rounded-xl text-[10px] font-bold transition-all flex-1 text-center truncate"
                         >
-                            {category.userId === userId ? "تأكيد الحذف" : "تأكيد المغادرة"}
+                            {category.userId === userId ? "حذف" : "مغادرة"}
                         </button>
                         <button
                             onClick={onCancelDelete}
@@ -680,7 +677,7 @@ function CategoryCard({
                                         <Edit2 size={16} />
                                     </button>
                                 </h2>
-                                <p className="text-[10px] text-slate-500">
+                                <p className="text-[12px] text-slate-500">
                                     بواسطة: {category.userId === userId ? "أنت" : "زميل"}
                                 </p>
                             </>
