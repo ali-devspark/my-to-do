@@ -10,6 +10,7 @@ interface TaskDetailsModalProps {
 }
 
 export default function TaskDetailsModal({ task, onClose }: TaskDetailsModalProps) {
+    const [currentTask, setCurrentTask] = useState<Task>(task);
     const [title, setTitle] = useState(task.title);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -21,7 +22,22 @@ export default function TaskDetailsModal({ task, onClose }: TaskDetailsModalProp
     const titleRef = useRef<HTMLInputElement>(null);
     const editSubtaskRef = useRef<HTMLInputElement>(null);
 
-    const subtasks = task.subtasks || [];
+    // Subscribe to real-time updates for this specific task
+    useEffect(() => {
+        if (!task.id) return;
+        
+        const unsub = taskService.subscribeToTask(task.id, (updatedTask) => {
+            setCurrentTask(updatedTask);
+            // Only update title state if NOT currently editing the title
+            if (!isEditingTitle) {
+                setTitle(updatedTask.title);
+            }
+        });
+        
+        return () => unsub();
+    }, [task.id, isEditingTitle]);
+
+    const subtasks = currentTask.subtasks || [];
 
     // Focus input when editing title
     useEffect(() => {
@@ -37,32 +53,25 @@ export default function TaskDetailsModal({ task, onClose }: TaskDetailsModalProp
         }
     }, [editingSubtaskId]);
 
-    // Auto-update internal state if task props change from outside
-    const [prevTaskTitle, setPrevTaskTitle] = useState(task.title);
-    if (task.title !== prevTaskTitle) {
-        setPrevTaskTitle(task.title);
-        if (!isEditingTitle) {
-            setTitle(task.title);
-        }
-    }
+    // Focus input when editing subtask
 
     const handleUpdateTitle = async () => {
         if (title.trim() && title !== task.title) {
             try {
-                await taskService.updateTask(task.id!, { title: title.trim() });
+                await taskService.updateTask(currentTask.id!, { title: title.trim() });
             } catch (err) {
                 console.error("Failed to update task title", err);
-                setTitle(task.title);
+                setTitle(currentTask.title);
             }
         } else {
-            setTitle(task.title);
+            setTitle(currentTask.title);
         }
         setIsEditingTitle(false);
     };
 
     const handleDeleteTask = async () => {
         try {
-            await taskService.deleteTask(task.id!);
+            await taskService.deleteTask(currentTask.id!);
             onClose();
         } catch (err) {
             console.error("Failed to delete task", err);
@@ -79,7 +88,7 @@ export default function TaskDetailsModal({ task, onClose }: TaskDetailsModalProp
         };
 
         try {
-            await taskService.updateTask(task.id!, {
+            await taskService.updateTask(currentTask.id!, {
                 subtasks: [...subtasks, newSubtask]
             });
             setNewSubtaskTitle("");
@@ -99,7 +108,7 @@ export default function TaskDetailsModal({ task, onClose }: TaskDetailsModalProp
         );
 
         try {
-            await taskService.updateTask(task.id!, { subtasks: updatedSubtasks });
+            await taskService.updateTask(currentTask.id!, { subtasks: updatedSubtasks });
             setEditingSubtaskId(null);
         } catch (err) {
             console.error("Failed to update subtask", err);
@@ -112,7 +121,7 @@ export default function TaskDetailsModal({ task, onClose }: TaskDetailsModalProp
         );
 
         try {
-            await taskService.updateTask(task.id!, { subtasks: updatedSubtasks });
+            await taskService.updateTask(currentTask.id!, { subtasks: updatedSubtasks });
         } catch (err) {
             console.error("Failed to toggle subtask", err);
         }
@@ -121,7 +130,7 @@ export default function TaskDetailsModal({ task, onClose }: TaskDetailsModalProp
     const handleDeleteSubtask = async (subtaskId: string) => {
         const updatedSubtasks = subtasks.filter(st => st.id !== subtaskId);
         try {
-            await taskService.updateTask(task.id!, { subtasks: updatedSubtasks });
+            await taskService.updateTask(currentTask.id!, { subtasks: updatedSubtasks });
         } catch (err) {
             console.error("Failed to delete subtask", err);
         }
@@ -151,7 +160,7 @@ export default function TaskDetailsModal({ task, onClose }: TaskDetailsModalProp
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter") handleUpdateTitle();
                                     if (e.key === "Escape") {
-                                        setTitle(task.title);
+                                        setTitle(currentTask.title);
                                         setIsEditingTitle(false);
                                     }
                                 }}
@@ -166,9 +175,9 @@ export default function TaskDetailsModal({ task, onClose }: TaskDetailsModalProp
                                 {title}
                             </h2>
                         )}
-                        {task.createdAt && task.createdAt.toDate && (
+                        {currentTask.createdAt && currentTask.createdAt.toDate && (
                             <p className="text-sm text-slate-400 mt-2 px-2">
-                                {task.createdAt.toDate().toLocaleDateString('ar-EG', {
+                                {currentTask.createdAt.toDate().toLocaleDateString('ar-EG', {
                                     year: 'numeric',
                                     month: 'short',
                                     day: 'numeric'

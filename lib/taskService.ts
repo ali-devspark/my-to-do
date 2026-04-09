@@ -76,4 +76,15 @@ export const taskService = {
             callback(tasks);
         });
     },
+    subscribeToTask: (taskId: string, callback: (task: Task) => void) => {
+        const taskDoc = doc(db, "tasks", taskId);
+        return onSnapshot(taskDoc, (docSnap) => {
+            if (docSnap.exists()) {
+                callback({
+                    id: docSnap.id,
+                    ...docSnap.data(),
+                } as Task);
+            }
+        });
+    },
 };

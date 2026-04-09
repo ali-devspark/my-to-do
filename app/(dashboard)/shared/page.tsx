@@ -127,7 +127,7 @@ export default function SharedPage() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-4 pb-20 sm:pb-0 relative min-h-screen">
+        <div className="max-w-[2200px] mx-auto px-4 pb-20 sm:pb-0 relative min-h-screen">
             {/* Mobile Tab Navigation */}
             <div className="md:hidden flex overflow-x-auto no-scrollbar gap-2 mb-6 py-2 -mx-4 px-4 sticky top-[73px] z-20 bg-[#0f172a]/80 backdrop-blur-md border-b border-white/10">
                 {categories.map((category, index) => {
@@ -224,7 +224,7 @@ export default function SharedPage() {
                 </button>
             </div>
 
-            <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2100px]:grid-cols-6 gap-6">
                 {categories.map((category, index) => (
                     <CategoryCard
                         key={category.id!}
@@ -406,7 +406,7 @@ export default function SharedPage() {
 
             {/* Mobile Add Task Modal */}
             {isAddingTaskMobile && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md transition-all animate-in fade-in duration-300" onClick={() => setIsAddingTaskMobile(false)}>
+                <div className="fixed inset-0 z-110 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md transition-all animate-in fade-in duration-300" onClick={() => setIsAddingTaskMobile(false)}>
                     <div className="bg-[#1e293b] w-full max-w-sm rounded-[2.5rem] p-8 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold flex items-center gap-2">
@@ -697,7 +697,7 @@ function CategoryCard({
                         value={newTask}
                         onChange={(e) => setNewTask(e.target.value)}
                         placeholder="أضف مهمة مشتركة..."
-                        className={`flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 ${accent.ring} transition-all`}
+                        className={`flex-1 min-w-0 bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 ${accent.ring} transition-all`}
                         onKeyDown={(e) => { if (e.key === "Enter") handleAddTask(); }}
                     />
                     <button
